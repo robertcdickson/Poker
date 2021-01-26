@@ -1,8 +1,11 @@
 import random as rand
 import itertools
-import operator
+from collections import Counter
 
-# rand.seed(1690)
+# rand.seed(43)  # two pair
+
+rand.seed(83)
+
 suits = ["clubs", "spades", "diamonds", "hearts"]
 values = {"2": 2,
           "3": 3,
@@ -18,30 +21,6 @@ values = {"2": 2,
           "K": 13,
           "A": 14}
 
-# generate cards
-cards = {}
-
-# makes dictionary with all cards
-for suit in suits:
-    for value in values:
-        cards[f"{value}-{suit}"] = (values[value], suit)
-
-# number of players and number of dealer cards
-num_of_players = 3
-dealer = 5
-
-# get a random sample of cards that are to be in play
-play_cards = rand.sample(list(cards.values()), dealer + 2 * num_of_players)
-
-# distribute cards
-dealer_cards = play_cards[0:5]
-# player_1_cards = [(10, 'clubs'), (11, 'clubs')]
-# player_1_cards = [(10, 'clubs'), (10, 'spades')]
-player_1_cards = play_cards[5:7]
-player_2_cards = play_cards[7:9]
-player_3_cards = play_cards[9:11]
-
-# dictionary of rankings
 ranking = {9: "royal_flush",
            8: "straight_flush",
            7: "four_of_a_kind",
@@ -53,189 +32,153 @@ ranking = {9: "royal_flush",
            1: "pair",
            0: "high_card"}
 
-# initialise a players cards with different connections
+deck = set()
+for suit in suits:
+    for value in values:
+        deck.add((values[value], suit))
 
-player_card_combinations = {"cards": [],
-                            "player_cards": [],
-                            "pairs": [],
-                            "highest_card": None,
-                            "highest_pair": (None, None),
-                            "suits": {"hearts": 0,
-                                      "diamonds": 0,
-                                      "clubs": 0,
-                                      "spades": 0},
-                            "values": {i: 0 for i in range(2, 15)}}
 
-dealer_card_combinations = {"cards": [],
-                            "pairs": [],
-                            "highest_card": [],
-                            "highest_pair": (None, None),
-                            "suits": {"hearts": 0,
-                                      "diamonds": 0,
-                                      "clubs": 0,
-                                      "spades": 0},
-                            "values": {i: 0 for i in range(2, 15)}
-                            }
-suit_matching = 0
-number_matching = 0
-number_in_a_row = 0
+def make_player(card_set):
+    return {"cards": sorted(card_set)}
 
-player_card_combinations["cards"] += player_1_cards
-player_card_combinations["player_cards"] = player_1_cards
 
-high_card_check = [a for a in player_1_cards if a[0] == max([x[0] for x in player_1_cards])]
-player_card_combinations["highest_card"] = high_card_check
+def new_straight_check(player):
 
-player_card_combinations["suits"][player_1_cards[0][1]] += 1
-player_card_combinations["suits"][player_1_cards[1][1]] += 1
+    if not len(set(player["card_values"])) > 4:
+        return None, None, None
 
-player_card_combinations["values"][player_1_cards[0][0]] += 1
-player_card_combinations["values"][player_1_cards[1][0]] += 1
+    straight_values = [combo for combo in itertools.combinations(player["card_values"], 5)
+                       if sorted(combo) == [2, 3, 4, 5, 14] or max(combo) - min(combo) == 4 and len(set(combo)) == 5]
 
-# pre-flop analysis
-for a, b in itertools.combinations(player_1_cards, 2):
+    if straight_values:
+        return list(max(straight_values))[::-1], 4, max(max(straight_values))
+    return None, None, None
 
-    # if pocket pairs found
-    if a[0] == b[0]:
-        print(f"Player has pocket {a[0]}\'s")
-        player_card_combinations["pairs"] += [(a, b)]
-        player_card_combinations["highest_pair"] = (a, b)
 
-    # if same suit found
-    if a[1] == b[1]:
-        print(f"Player has two {a[1]}")
+def straight_check(player):
+    # adds A to start to check A-2-3-4-5 straight
+    straight_test = [14 if 14 in player["card_values"] else 0] + [key if key in player["card_values"] else 0
+                                                                  for key in values.values()]
 
-# flop
-visible_dealer_cards = dealer_cards[0:3]
+    # group off cards that are present or not into lists in a list
+    # this may seem a bit involved but should be useful
+    # later for analysis of possible straights available after turn, river etc.
+    list_of_groups = [list(group)[::-1] for k, group in itertools.groupby(straight_test, key=lambda x: x != 0)][::-1]
 
-for a in visible_dealer_cards:
-    player_card_combinations["cards"] += [a]
-    player_card_combinations["values"][a[0]] += 1
-    player_card_combinations["suits"][a[1]] += 1
-    # for b in player_1_cards:
+    # if any straight found
+    for group in list_of_groups:
 
-# turn
-turn = dealer_cards[3]
-player_card_combinations["cards"] += [turn]
-player_card_combinations["values"][turn[0]] += 1
-player_card_combinations["suits"][turn[1]] += 1
+        # if a group of 5 that isn't full of zeros
+        if len(group) >= 5 and not all(val == 0 for val in group):
+            if len(group) > 5:
+                group = group[0:-(len(group) - 5)]
+            straight_ranking = max(group)
 
-# river
-river = dealer_cards[4]
-player_card_combinations["cards"] += [river]
-player_card_combinations["values"][river[0]] += 1
-player_card_combinations["suits"][river[1]] += 1
+            return group, 4, straight_ranking
+
+    # otherwise return None, None to show no straight was found
+    return None, None, None
+
+
+def flush_check(player, straight_cards=None):
+    # Check if any flush is found
+
+    card_counts = Counter(player["card_suits"])
+
+    if any(val >= 5 for val in card_counts.values()):
+
+        # flush suit
+        flush_suit = max(card_counts, key=card_counts.get)
+
+        # get flush cards
+        flush_cards = [card for card in player["cards"] if card[1] == flush_suit]
+
+        # check for any straight flush
+        if straight_cards:
+
+            if all(x in straight_cards for x in [card[0] for card in flush_cards]):
+                # check for specific case of royal flush
+                if all(x[0] in [10, 11, 12, 13, 14] for x in flush_cards):
+                    # it is impossible for 2 players to have a royal flush so just return 9
+                    return flush_cards, 9, None
+
+                flush_ranking = max([card[0] for card in flush_cards if card[0] in straight_cards])
+                return flush_cards, 8, flush_ranking
+
+        flush_ranking = max([card[0] for card in flush_cards])
+        return flush_cards, 5, flush_ranking
+    else:
+        return None, None, None
+
+
+def n_check(player):
+    pairs_of_cards = []
+    three_of_a_kind_cards = []
+    four_of_a_kind_cards = []
+
+    for key, value in player["card_values_counter"].items():
+        if value == 4:
+            four_of_a_kind_cards += [key]
+        elif value == 3:
+            three_of_a_kind_cards += [key]
+        elif value == 2:
+            pairs_of_cards += [key]
+
+    return four_of_a_kind_cards, three_of_a_kind_cards, pairs_of_cards
+
+
+def analyse_init(player):
+    player["card_values"] = [card[0] for card in player["cards"]]
+    player["card_values_counter"] = Counter(player["card_values"])
+    player["card_suits"] = [card[1] for card in player["cards"]]
 
 
 def analyse_cards(player):
-    ranking = 0
+    analyse_init(player)
 
-    # if True, player has a straight THIS IS NOT TRUE!!!
-    if any(val >= 5 for val in player['values']):
-        ranking = 4
+    player_card_rankings = []
 
-    # if True, player has a flush
-    if any(val >= 5 for val in player['suit']):
-        ranking = 5
-        flush_suit = max(cards.items(), key=(lambda key: cards[key]))
-        flush_cards = sorted([card for card in cards if card[1] == flush_suit])
+    # check for straight
+    straight_cards, hand_ranking, straight_ranking = new_straight_check(player)
 
-        # check royal flush
-        royal_flush_values = [10, 11, 12, 13, 14]
-        if all((value, flush_suit) in player['cards'] for value in royal_flush_values):
-            ranking = 9
-            return ranking
+    if straight_cards:
+        player_card_rankings.append((hand_ranking, straight_ranking, straight_cards))
 
-        # check straight flush
-        flush_values = [flush_card[0] for flush_card in flush_cards]
-        flush_value_differences = [flush_value - min(list(flush_values)) - int(flush_cards.index(flush_value)) for
-                                   flush_value in flush_values]
-        if all(diff == 0 for diff in flush_value_differences):
-            ranking = 8
-            return ranking
+    # check for flush or straight flush
+    flush_cards, flush, flush_ranking = flush_check(player, straight_cards)
+    if flush:
+        player_card_rankings.append((flush, flush_ranking, flush_cards))
 
-        # if four of a kind
-        if any(val == 4 for val in player['values'].values()):
-            ranking = 7
+    # NEW check for all kinds of cards
+    four_of_a_kind, three_of_a_kind, pairs = n_check(player)
 
-        # if three of a kind
-        if any(val == 3 for val in player['values'].values()):
-            ranking = 3
+    # if four of a kind
+    # four_of_a_kind = n_check(player, 4)
+    if four_of_a_kind:
+        player_card_rankings.append(
+            (7, max(four_of_a_kind), [card for card in player["cards"] if card[0] == max(four_of_a_kind)]))
+    elif pairs and three_of_a_kind:
+        # full house
+        player_card_rankings.append((6, max(three_of_a_kind), [card for card in player["cards"] if
+                                                               card[0] == max(three_of_a_kind) or card[0] == max(
+                                                                   pairs)]))
+    elif three_of_a_kind:
+        player_card_rankings.append(
+            (3, max(three_of_a_kind), [card for card in player["cards"] if card[0] == max(three_of_a_kind)]))
+    elif pairs:
+        if len(pairs) > 1:
+            # two pair
+            highest_pairs = pairs[-2:]
+            highest_pair_ranking = max(pairs)
+            player_card_rankings.append(
+                (2, highest_pair_ranking, [card for card in player["cards"] if card[0] in highest_pairs]))
+        else:
+            highest_pair = pairs[0]
+            player_card_rankings.append(
+                (1, highest_pair, [card for card in player["cards"] if card[0] == highest_pair]))
+    else:
+        player_card_rankings.append((0, max([card[0] for card in player["cards"]]), max(player["cards"])))
 
-        # if single pair
-        if any(val == 2 for val in player['values'].values()):
+    highest_combination = max(player_card_rankings, key=lambda x: x[0])
 
-            # check number of pair
-            number_of_pairs = 0
-            for val in player['values']:
-                if player['values'][val] == 2:
-                    number_of_pairs += 1
-
-            # if more than one pair set to two pairs ranking
-            if number_of_pairs > 1:
-                ranking = 2
-            ranking = 1
-
-        # check full house
-        if any(val == 3 for val in player['values'].values()) and any(val == 2 for val in player['values'].values()):
-            ranking = 6
-            
-"""# check combinations in flop
-for a, b in itertools.combinations(visible_dealer_cards, 2):
-
-    # if suit and value don't match for pair of cards then continue
-    if a[0] != b[0] and a[1] != b[1]:
-        continue
-
-    print(a, b)
-    # if a pair in flop
-    if a[0] == b[0]:
-        print(f"Pair of {a[0]}\'s on flop")
-        player_card_combinations["pairs"] = (a, b)
-        if a[0] > player_card_combinations["highest_pair"][0]:
-            player_card_combinations["highest_pair"] = (a, b)
-
-    # if same suit found
-    if a[1] == b[1]:
-        print(f"Flop has two {a[1]}")"""
-
-"""for pair in list(itertools.product(player_1_cards, visible_dealer_cards)):
-    print(pair)"""
-
-"""player_suits = []
-dealer_suits = []
-player_numbers = []
-dealer_numbers = []
-
-# for each size of possible pool
-for i in range(2, len(dealer_cards) + 1):
-    # for each card in a players hand
-    for card in player_1_cards:
-
-        # get all possible combinations of hand card and length i of dealer cards
-        check = list(itertools.combinations(sorted([card] + dealer_cards), i))
-
-        # split check into cards with and without the hand card
-        for combo in check:
-
-            len_set = set(x[1] for x in combo)
-            len_list = list(combo)
-            test = len(len_set) < len(len_list)
-            if test:
-                if card in len_list:
-                    player_suits.append(len_list)
-                else:
-                    dealer_suits.append(len(len_list) - len(len_set))
-            suits.append(len_list)
-        # itertools.groupby()"""
-
-"""sui((6, 'clubs'), (8, 'diamonds'), (4, 'diamonds'), (14, 'diamonds'), (12, 'diamonds')), ((7, 'diamonds'), (6, 'clubs'), (4, 'diamonds'), (14, 'diamonds'), (12, 'diamonds')), ((7, 'diamonds'), (6, 'clubs'), (8, 'diamonds'), (4, 'diamonds'), (12, 'diamonds')), ((7, 'diamonds'), (6, 'clubs'), (8, 'diamonds'), (4, 'diamonds'), (14, 'diamonds')), ((7, 'diamonds'), (6, 'clubs'), (8, 'diamonds'), (14, 'diamonds'), (12, 'diamonds')), ((7, 'diamonds'), (8, 'diamonds'), (4, 'diamonds'), (14, 'diamonds'), (12, 'diamonds'))ts
-if pair in hand instantly put ranking to 8
-if same suit in hand makes it easier to get flush, but doesn't give a ranking change
-if numbers in range of each other then makes it easier for straight, but doesn't give a ranking change.
-
-
-card1, card2
-card1, card2, card3, 
-
-"""
+    return highest_combination
