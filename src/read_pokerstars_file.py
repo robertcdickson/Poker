@@ -74,3 +74,4 @@ def read_hand_file(file):
     return translated_hand, translated_board
 
 me, board = read_hand_file("../pokerstars/hand_0")
+
