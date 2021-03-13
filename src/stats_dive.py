@@ -53,6 +53,7 @@ def pre_flop_stats(players=None, n_table_cards=5, specified_table_cards=None, n=
 opponents = {"bobson-dugnutt": [(2, 'diamonds'), (2, 'spades')],
              "johnny-three-socks": [(3, 'clubs'), (3, 'diamonds')]}
 table_cards = [(5, 'spades'), (5, 'clubs'), (9, 'spades'), (9, 'clubs'), (14, 'hearts')]
+
 wins, draws, tables = pre_flop_stats(players=opponents, n=1000, n_table_cards=5)
 analysis = {}
 """for i in range(6, 14):
