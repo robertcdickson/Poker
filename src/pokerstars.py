@@ -190,17 +190,14 @@ class PokerStars(object):
         ]
         return data_df
 
-    def read_betting_action(self, lines_list):
+    def read_betting_action(self, lines_list, play_phase=None):
         data = {}
-        print("This should interpret the post deal lines")
-
         for line in lines_list:
 
             if "Dealt" in line:
                 player_name = line.split()[2]
                 # data["Player Name"].append(player_name)
                 cards = [line.split()[3].lstrip("["), line.split()[4].rstrip("]")]
-                print(player_name, cards)
 
             elif ":" in line:
                 player_name = line.split(":")[0]
@@ -210,10 +207,9 @@ class PokerStars(object):
                 else:
                     data[player_name].append(action)
 
-                print(player_name, action)
         normalised_dict = dict([(k, pd.Series(v)) for k, v in data.items()])
         df = pd.DataFrame(normalised_dict).transpose()
-        df.columns = [f"Post-Flop Action {i}" for i in range(1, len(df.columns) + 1)]
+        df.columns = [f"{play_phase.capitalize()} Action {i}" for i in range(1, len(df.columns) + 1)]
         return df
 
     def operations(self, operator, line):
@@ -231,11 +227,19 @@ class PokerStars(object):
 
         return pd.DataFrame(data.values(), index=data.keys(), columns=["Player Cards"])
 
+    def get_final_table_cards(self, lines):
+        for line in reversed(lines):
+            if "Board" in line:
+                return re.findall("\[.+]", line)[0]
+
+        return None
+
     def read_pokerstars_file(self, lines):
         """
         A function that processes a pokerstars game and returns a dataframe with a summary of all events in game
 
         Args:
+            lines:
             file (str): file to read
 
         Returns:
@@ -243,6 +247,7 @@ class PokerStars(object):
         """
 
         data_dict = {}
+
         # process file
         chunks = self.split_game_to_events(file=None, lines=lines)
 
@@ -257,7 +262,7 @@ class PokerStars(object):
 
         for key, value in search_dict.items():
             try:
-                data_dict[key] = self.read_betting_action(chunks[value])
+                data_dict[key] = self.read_betting_action(chunks[value], play_phase=key)
             except KeyError:
                 break
 
