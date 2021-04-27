@@ -5,7 +5,7 @@ import random
 
 
 def pre_flop_stats(players=None, n_table_cards=5, specified_table_cards=None, n=100):
-    # a function that runs a simulation for n games to see how likely a player is to win pre flop against other hands
+    # a function that runs a simulation for n poker_session to see how likely a player is to win pre flop against other hands
 
     # set up
     winners_dict = {k: 0 for k in players.keys()}
