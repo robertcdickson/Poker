@@ -1,10 +1,22 @@
 import re
 import pandas as pd
+from collections import Counter
 
 
 class PokerGame(object):
     # TODO: Implement a situation loader which can load a state of play and simulate the rest of the game n times
-    def __init__(self, game_text, data, table_cards, winners):
+
+    def __init__(self, game_text, data, table_cards, winners, winning_hands, game_index=0):
+        """
+
+        Args:
+            game_text:
+            data:
+            table_cards:
+            winners:
+            winning_hands:
+            game_index:
+        """
         self.suits = {"c": "clubs",
                       "s": "spades",
                       "d": "diamonds",
@@ -24,23 +36,57 @@ class PokerGame(object):
                        "K": 13,
                        "A": 14}
 
+        self.game_index = game_index
         self.data = data
         self.game_text = game_text
         self.winners = winners
+        self.winning_hands = winning_hands
 
         if table_cards:
             self.table_cards = table_cards
 
         self.big_blind = self.get_blind("Big")
-        self.small_blind = self.get_blind("Big")
+        self.small_blind = self.get_blind("Small")
         self.chip_leader = self.data.index[self.data["Chips"] == self.data["Chips"].max()].to_list()
+        self.player_names = None
+        self.player_final_action = None
 
     def get_blind(self, size: str):
         return self.data.index[self.data[f"{size.capitalize()} Blind"] == True].to_list()
 
+    def __str__(self):
+
+        print_winners = ""
+        for winner in self.winners:
+            print_winners += f"{winner} "
+        print_winners.lstrip(" ")
+
+        print_winning_hands = ""
+        for winning_hand in self.winning_hands:
+            print_winning_hands += winning_hand
+        print_winning_hands.lstrip(" ")
+
+        if print_winning_hands == "":
+            print_winning_hands = "Not Shown"
+
+        try:
+            print_table_cards = self.table_cards
+        except AttributeError:
+            print_table_cards = "Not Dealt"
+
+        line = "-" * max([len(y) for y in ["Winners: " + print_winners,
+                                           "Winning Cards: " + print_table_cards,
+                                           "Table Cards: " + print_winning_hands]])
+        return f'Poker Game #{self.game_index}\n' + \
+               line + "\n" + \
+               f'Winners: {print_winners}\n' \
+               f'Winning Cards: {print_winning_hands}\n' \
+               f'Table Cards: {print_table_cards}\n' + \
+               line + "\n"
+
 
 class PokerStarsCollection(object):
-    def __init__(self, file, working_dir, player="Bobsondugnutt11", write_files=False):
+    def __init__(self, file, working_dir, player="Bobson_Dugnutt", write_files=False):
 
         self.suits = {"c": "clubs",
                       "s": "spades",
@@ -67,8 +113,13 @@ class PokerStarsCollection(object):
 
         self.games_text = self.process_file(split_files=write_files)
         self.games_data = {}
+        i = 0
         for key, game in self.games_text.items():
-            self.games_data[key] = self.read_pokerstars_file(lines=game)
+            self.games_data[key] = self.read_pokerstars_file(lines=game, game_index=i)
+            i += 1
+
+        self.winners = [game.winners[0] for game in self.games_data.values()]
+        self.winner_count = Counter(self.winners)
 
     def process_file(self, split_files=False):
 
@@ -259,12 +310,15 @@ class PokerStarsCollection(object):
     def read_summary(self, lines_list):
         data = {}
         winners = []
+        winning_hands = []
         for line in lines_list:
             if "showed" in line:
                 a = re.sub("\(.*\)", "", line.split("showed")[0])
                 b = re.sub("Seat [0-9]: ", "", a).strip()
                 data[b] = re.findall("\[.+]", line)[0].strip("[]")
                 if "won" in line:
+                    if "showed" in line:
+                        winning_hands.append(data[b])
                     winners.append(b)
             elif "mucked" in line:
                 a = re.sub("\(.*\)", "", line.split("mucked")[0])
@@ -275,7 +329,7 @@ class PokerStarsCollection(object):
                 b = re.sub("Seat [0-9]: ", "", a).strip()
                 winners.append(b)
 
-        return pd.DataFrame(data.values(), index=data.keys(), columns=["Player Cards"]), winners
+        return pd.DataFrame(data.values(), index=data.keys(), columns=["Player Cards"]), winners, winning_hands
 
     def get_final_table_cards(self, lines):
         for line in reversed(lines):
@@ -283,7 +337,7 @@ class PokerStarsCollection(object):
                 return re.findall("\[.+]", line)[0].strip("[]")
         return None
 
-    def read_pokerstars_file(self, lines):
+    def read_pokerstars_file(self, lines, game_index=0):
         """
         A function that processes a pokerstars game and returns a dataframe with a summary of all events in game
 
@@ -318,8 +372,8 @@ class PokerStarsCollection(object):
             except KeyError:
                 break
 
-        data_dict["summary"], winners = self.read_summary(game_text["SUMMARY"])
+        data_dict["summary"], winners, winning_hands = self.read_summary(game_text["SUMMARY"])
         events_df = pd.concat([val for val in data_dict.values()], axis=1)
         game = PokerGame([item for sublist in game_text.values() for item in sublist], events_df, table_cards,
-                         winners=winners)
+                         winners=winners, winning_hands=winning_hands, game_index=game_index)
         return game
