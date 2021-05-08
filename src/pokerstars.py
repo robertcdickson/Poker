@@ -5,7 +5,7 @@ from collections import Counter
 
 class PokerGame(object):
     # TODO: Implement a situation loader which can load a state of play and simulate the rest of the game n times
-
+    # TODO: Get number of chips won in game
     def __init__(self, game_text, data, table_cards, winners, winning_hands, game_index=0):
         """
 
@@ -50,9 +50,15 @@ class PokerGame(object):
         self.chip_leader = self.data.index[self.data["Chips"] == self.data["Chips"].max()].to_list()
         self.player_names = None
         self.player_final_action = None
+        self.final_pot = self.get_final_pot()
 
     def get_blind(self, size: str):
         return self.data.index[self.data[f"{size.capitalize()} Blind"] == True].to_list()
+
+    def get_final_pot(self):
+        for line in self.game_text:
+            if "collected" in line:
+                return float(line.split("$")[1].split()[0].strip("()"))
 
     def __str__(self):
 
@@ -377,3 +383,17 @@ class PokerStarsCollection(object):
         game = PokerGame([item for sublist in game_text.values() for item in sublist], events_df, table_cards,
                          winners=winners, winning_hands=winning_hands, game_index=game_index)
         return game
+
+    def winning_games(self, winner=None):
+        """
+
+        Args:
+            player: str
+                Name of winning player
+        Returns:
+            winner_dict
+
+        """
+        if not winner:
+            winner = self.player
+        return {game.game_index: game for game in self.games_data.values() if winner in game.winners}
