@@ -5,8 +5,7 @@ from collections import Counter
 
 class PokerGame(object):
     # TODO: Implement a situation loader which can load a state of play and simulate the rest of the game n times
-    # TODO: Get number of chips won in game
-    def __init__(self, game_text, data, table_cards, winners, winning_hands, game_index=0):
+    def __init__(self, game_text, data, table_cards, winners, winning_hands, player="Bobson_Dugnutt", game_index=0):
         """
 
         Args:
@@ -48,12 +47,28 @@ class PokerGame(object):
         self.big_blind = self.get_blind("Big")
         self.small_blind = self.get_blind("Small")
         self.chip_leader = self.data.index[self.data["Chips"] == self.data["Chips"].max()].to_list()
+        self.player = player
+
+        self.player_cards_text = self.get_player_cards()
+        if self.player_cards_text is not None:
+            self.player_cards = self.translate_hand(self.player_cards_text.split())
+
         self.player_names = None
         self.player_final_action = None
+
         self.final_pot = self.get_final_pot()
 
     def get_blind(self, size: str):
         return self.data.index[self.data[f"{size.capitalize()} Blind"] == True].to_list()
+
+    def translate_hand(self, hand):
+        # translates hands from pokerstars output format to list of tuples
+        return [(int(self.values[card[0]]), self.suits[card[1]]) for card in hand]
+
+    def get_player_cards(self):
+        for line in self.game_text:
+            if "Dealt" in line and self.player in line:
+                return line.split("[")[-1].rstrip("]\n")
 
     def get_final_pot(self):
         for line in self.game_text:

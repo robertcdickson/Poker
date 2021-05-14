@@ -4,7 +4,6 @@ from collections import Counter
 
 # rand.seed(43)  # two pair
 
-rand.seed(83)
 
 suits = ["clubs", "spades", "diamonds", "hearts"]
 values = {"2": 2,
@@ -32,10 +31,7 @@ ranking = {9: "royal_flush",
            1: "pair",
            0: "high_card"}
 
-deck = set()
-for suit in suits:
-    for value in values:
-        deck.add((values[value], suit))
+deck = set((value, suit) for suit in suits for value in values.values())
 
 
 def make_player(card_set):

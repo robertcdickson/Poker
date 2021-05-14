@@ -1,10 +1,11 @@
 import poker_main
-from poker_main import deck, make_player, analyse_cards
-import itertools
-import random
+
 
 
 def pre_flop_stats(players=None, n_table_cards=5, specified_table_cards=None, n=100):
+    from poker_main import deck, make_player, analyse_cards
+    import itertools
+    import random
     # a function that runs a simulation for n poker_session to see how likely a player is to win pre flop against other hands
 
     # set up
@@ -19,7 +20,6 @@ def pre_flop_stats(players=None, n_table_cards=5, specified_table_cards=None, n=
 
     for i in range(n):
 
-        hand_ranks = []
         ranking_dict = {}
 
         if not specified_table_cards:
@@ -31,7 +31,6 @@ def pre_flop_stats(players=None, n_table_cards=5, specified_table_cards=None, n=
         for name, opponent_values in players.items():
             opponent = make_player(opponent_values + table_cards)
             opponent_ranking = analyse_cards(opponent)
-            print(f"Player {name} with ranking: {opponent_ranking}")
             ranking_dict[name] = (opponent_ranking[0], opponent_ranking[1])
 
         winning_list = [k for k, v in ranking_dict.items() if v == max(ranking_dict.values())]
@@ -50,21 +49,5 @@ def pre_flop_stats(players=None, n_table_cards=5, specified_table_cards=None, n=
     return winners_dict, draws_dict, table_cards_dict
 
 
-opponents = {"bobson-dugnutt": [(2, 'diamonds'), (2, 'spades')],
-             "johnny-three-socks": [(3, 'clubs'), (3, 'diamonds')]}
-table_cards = [(5, 'spades'), (5, 'clubs'), (9, 'spades'), (9, 'clubs'), (14, 'hearts')]
 
-wins, draws, tables = pre_flop_stats(players=opponents, n=1000, n_table_cards=5)
-analysis = {}
-"""for i in range(6, 14):
 
-    against = {
-        "suited_connectors": [(i, 'clubs'), (i + 1, 'clubs')],
-        "unsuited_connectors": [(i, 'spades'), (i + 1, 'clubs')],
-        "pairs": [(i, 'spades'), (i, 'clubs')]
-    }
-
-    opponents.update(against)
-    x = pre_flop_stats(players=opponents, n=10000)
-    analysis[i] = x
-    print(f"Percentage chance of {opponents['bobson-dugnutt']} beating suited {i}, {i + 1}  is {x['bobson-dugnutt']}")"""
