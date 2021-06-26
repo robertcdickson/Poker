@@ -2,6 +2,8 @@ import re
 import pandas as pd
 from collections import Counter
 
+from src.poker_main import Player
+
 
 class PokerGame(object):
     # TODO: Implement a situation loader which can load a state of play and simulate the rest of the game n times
@@ -35,6 +37,7 @@ class PokerGame(object):
                        "K": 13,
                        "A": 14}
 
+        self.deck = set((value, suit) for suit in self.suits for value in self.values.values())
         self.game_index = game_index
         self.data = data
         self.game_text = game_text
@@ -43,6 +46,8 @@ class PokerGame(object):
 
         if table_cards:
             self.table_cards = table_cards
+        else:
+            self.table_cards = None
 
         self.big_blind = self.get_blind("Big")
         self.small_blind = self.get_blind("Small")
@@ -75,6 +80,53 @@ class PokerGame(object):
             if "collected" in line:
                 return float(line.split("$")[1].split()[0].strip("()"))
 
+    def simulate_game(self, players=None, n=100):
+        """
+        A function that runs a simulation for n poker_session to see how likely a player is to win pre flop against
+        other hands
+        Args:
+            players:
+            n_table_cards:
+            specified_table_cards:
+            n:
+
+        Returns:
+
+        """
+        import itertools
+        import random
+
+        # set up
+        winners_dict = {k: 0 for k in players.keys()}
+        draws_dict = {k: 0 for k in players.keys()}
+        table_cards_dict = {}
+
+        # used cards are cards that can no longer come out of the deck
+        # used_cards = list(itertools.chain(*players.values()))
+
+        for i in range(n):
+
+            ranking_dict = {}
+
+            for name, player_cards in players.items():
+                opponent_ranking = Player(player_cards, self.table_cards).analyse_cards()
+                ranking_dict[name] = (opponent_ranking[0], opponent_ranking[1])
+
+            winning_list = [k for k, v in ranking_dict.items() if v == max(ranking_dict.values())]
+            table_cards_dict[i] = self.table_cards
+            for winner in winning_list:
+                if len(winning_list) > 1:
+                    draws_dict[winner] += 1
+                else:
+                    winners_dict[winner] += 1
+
+        for key, value in winners_dict.items():
+            winners_dict[key] = 100 * value / n
+        for key, value in draws_dict.items():
+            draws_dict[key] = 100 * value / n
+
+        return winners_dict, draws_dict, table_cards_dict
+
     def __str__(self):
 
         print_winners = ""
@@ -90,10 +142,11 @@ class PokerGame(object):
         if print_winning_hands == "":
             print_winning_hands = "Not Shown"
 
-        try:
+        if self.table_cards is None:
+            print_table_cards = "Not dealt"
+        else:
             print_table_cards = self.table_cards
-        except AttributeError:
-            print_table_cards = "Not Dealt"
+
 
         line = "-" * max([len(y) for y in ["Winners: " + print_winners,
                                            "Winning Cards: " + print_table_cards,
