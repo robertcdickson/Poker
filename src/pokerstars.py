@@ -1,3 +1,5 @@
+import itertools
+import random
 import re
 import pandas as pd
 from collections import Counter
@@ -7,16 +9,24 @@ from src.poker_main import Player
 
 class PokerGame(object):
     # TODO: Implement a situation loader which can load a state of play and simulate the rest of the game n times
-    def __init__(self, game_text, data, table_cards, winners, winning_hands, player="Bobson_Dugnutt", game_index=0):
+    # TODO: dict object for where all players are positioned
+
+    def __init__(self, game_text, data, table_cards, winners, winning_hands, hero="Bobson_Dugnutt", game_index=0):
         """
 
         Args:
-            game_text:
-            data:
-            table_cards:
-            winners:
-            winning_hands:
-            game_index:
+            game_text (str):
+                The whole text read out from the pokerstars output file
+            data (Dataframe):
+                A dataframe with different attributes of the game
+            table_cards (str):
+                String of cards on table
+            winners (list):
+                List of the winners of the game
+            winning_hands (list):
+                List of hands that won the game
+            game_index (int):
+                An index used to track PokerStarsCollection games
         """
         self.suits = {"c": "clubs",
                       "s": "spades",
@@ -38,8 +48,8 @@ class PokerGame(object):
                        "A": 14}
 
         self.deck = set((value, suit) for suit in self.suits for value in self.values.values())
-        self.game_index = game_index
         self.data = data
+        self.game_index = game_index
         self.game_text = game_text
         self.winners = winners
         self.winning_hands = winning_hands
@@ -52,7 +62,7 @@ class PokerGame(object):
         self.big_blind = self.get_blind("Big")
         self.small_blind = self.get_blind("Small")
         self.chip_leader = self.data.index[self.data["Chips"] == self.data["Chips"].max()].to_list()
-        self.player = player
+        self.hero = hero
 
         self.player_cards_text = self.get_player_cards()
         if self.player_cards_text is not None:
@@ -72,7 +82,7 @@ class PokerGame(object):
 
     def get_player_cards(self):
         for line in self.game_text:
-            if "Dealt" in line and self.player in line:
+            if "Dealt" in line and self.hero in line:
                 return line.split("[")[-1].rstrip("]\n")
 
     def get_final_pot(self):
@@ -80,9 +90,9 @@ class PokerGame(object):
             if "collected" in line:
                 return float(line.split("$")[1].split()[0].strip("()"))
 
-    def simulate_game(self, players=None, n=100):
+    def simulate_game(self, players=None, n=100, use_table_cards=True, table_card_length=None):
         """
-        A function that runs a simulation for n poker_session to see how likely a player is to win pre flop against
+        A function that runs a simulation for n poker_session to see how likely a hero is to win pre flop against
         other hands
         Args:
             players:
@@ -93,39 +103,42 @@ class PokerGame(object):
         Returns:
 
         """
-        import itertools
-        import random
 
         # set up
         winners_dict = {k: 0 for k in players.keys()}
-        draws_dict = {k: 0 for k in players.keys()}
+        ties_dict = {k: 0 for k in players.keys()}
         table_cards_dict = {}
 
         # used cards are cards that can no longer come out of the deck
-        # used_cards = list(itertools.chain(*players.values()))
+        used_cards = list(itertools.chain(*players.values()))
 
+        # simulates the game n times
         for i in range(n):
 
             ranking_dict = {}
 
+            # get ranking of each hand with the set of table cards
             for name, player_cards in players.items():
                 opponent_ranking = Player(player_cards, self.table_cards).analyse_cards()
                 ranking_dict[name] = (opponent_ranking[0], opponent_ranking[1])
 
+            # get a list of winners in hand
             winning_list = [k for k, v in ranking_dict.items() if v == max(ranking_dict.values())]
             table_cards_dict[i] = self.table_cards
+
+            # determine if single winner of if there was a draw
             for winner in winning_list:
                 if len(winning_list) > 1:
-                    draws_dict[winner] += 1
+                    ties_dict[winner] += 1
                 else:
                     winners_dict[winner] += 1
 
         for key, value in winners_dict.items():
             winners_dict[key] = 100 * value / n
-        for key, value in draws_dict.items():
-            draws_dict[key] = 100 * value / n
+        for key, value in ties_dict.items():
+            ties_dict[key] = 100 * value / n
 
-        return winners_dict, draws_dict, table_cards_dict
+        return winners_dict, ties_dict, table_cards_dict
 
     def __str__(self):
 
@@ -147,7 +160,6 @@ class PokerGame(object):
         else:
             print_table_cards = self.table_cards
 
-
         line = "-" * max([len(y) for y in ["Winners: " + print_winners,
                                            "Winning Cards: " + print_table_cards,
                                            "Table Cards: " + print_winning_hands]])
@@ -160,7 +172,7 @@ class PokerGame(object):
 
 
 class PokerStarsCollection(object):
-    def __init__(self, file, working_dir, player="Bobson_Dugnutt", write_files=False):
+    def __init__(self, file, working_dir, hero="Bobson_Dugnutt", write_files=False):
 
         self.suits = {"c": "clubs",
                       "s": "spades",
@@ -183,7 +195,7 @@ class PokerStarsCollection(object):
 
         self.file = file
         self.working_dir = working_dir
-        self.player = player
+        self.hero = hero
 
         self.games_text = self.process_file(split_files=write_files)
         self.games_data = {}
@@ -309,7 +321,7 @@ class PokerStarsCollection(object):
         for line in player_list:
             player = re.findall(":.*\(", line)
             if player and "chips" in line:
-                # get player name and number of chips
+                # get hero name and number of chips
                 line_list = line.split(" ")
 
                 # get different pieces of data pre dealing

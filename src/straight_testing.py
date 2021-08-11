@@ -60,5 +60,6 @@ player["card_values"] = [card[0] for card in player["cards"]]
 
 new = poker_main.new_straight_check(player)
 old = poker_main.straight_check(player)
+
 print(f"new: {new}")
 print(f"old: {old}")

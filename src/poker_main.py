@@ -1,14 +1,15 @@
+import random
 import random as rand
 import itertools
 from collections import Counter
 
 
-class Player(object):
+class Poker(object):
     """
-    The
+    A class that plays a single game of poker
     """
 
-    def __init__(self, cards, table_cards):
+    def __init__(self, players: dict):
         self.suits = ["clubs", "spades", "diamonds", "hearts"]
         self.values = {"2": 2,
                        "3": 3,
@@ -35,10 +36,115 @@ class Player(object):
                          1: "pair",
                          0: "high_card"}
 
-        self.deck = set((value, suit) for suit in self.suits for value in self.values.values())
+        self.deck = [(value, suit) for suit in self.suits for value in self.values.values()]
+        self.remaining_deck = self.deck.copy()
+        self.players = players
+        self.player_hands = {}
+        self.number_of_players = len(self.players)
+        self.seat_numbers = list(range(self.number_of_players))
+        positions_9_handed = {"SB": 0,
+                              "BB": 1,
+                              "UTG": 2,
+                              "UTG+1": 3,
+                              "UTG+2": 4,
+                              "LJ": 5,
+                              "HJ": 6,
+                              "CO": 7,
+                              "BTN": 8}
+
+        positions_6_handed = {0: "SB",
+                              1: "BB",
+                              2: "LJ",
+                              3: "HJ",
+                              4: "CO",
+                              5: "BTN"}
+
+        # randomly seat players (will do for the moment)
+        self.player_seats = {}
+        random.shuffle(self.seat_numbers)
+        for i, player in enumerate(players.keys()):
+            self.player_seats[player] = self.seat_numbers[i]
+            print(f"{player} is in position: {positions_6_handed[self.player_seats[player]]}")
+
+    def deal(self):
+        for player in self.players:
+            self.player_hands[player] = random.sample(self.deck, 2)
+            self.remaining_deck = [card for card in self.remaining_deck if card not in self.player_hands[player]]
+
+    def post_blinds(self):
+        pass
+
+    def pre_flop_action(self):
+        pass
+
+    def flop(self):
+        pass
+
+    def turn(self):
+        pass
+
+    def river(self):
+        pass
+
+    def showdown(self):
+        pass
+
+    def summary(self):
+        pass
+
+    def play_game(self):
+        print("A poker game!")
+
+        # deal cards
+        self.deal()
+
+        # post_blinds
+
+
+
+class Player(object):
+    """
+    A class for a poker player.
+    """
+
+    def __init__(self, cards: list, table_cards: list):
+        self.suits = ["clubs", "spades", "diamonds", "hearts"]
+        self.values = {"2": 2,
+                       "3": 3,
+                       "4": 4,
+                       "5": 5,
+                       "6": 6,
+                       "7": 7,
+                       "8": 8,
+                       "9": 9,
+                       "10": 10,
+                       "J": 11,
+                       "Q": 12,
+                       "K": 13,
+                       "A": 14}
+
+        self.rankings = {9: "royal_flush",
+                         8: "straight_flush",
+                         7: "four_of_a_kind",
+                         6: "full_house",
+                         5: "flush",
+                         4: "straight",
+                         3: "three_of_a_kind",
+                         2: "two_pair",
+                         1: "pair",
+                         0: "high_card"}
+
+        self.deck = [(value, suit) for suit in self.suits for value in self.values.values()]
         self.cards = cards
-        self.ranking = None  # yet
         self.table_cards = table_cards
+        self.in_play_cards = self.cards + self.table_cards
+        self.remaining_deck = [card for card in self.deck if card not in self.in_play_cards]
+
+        self.card_values = [card[0] for card in self.in_play_cards]
+        self.card_values_counter = Counter(self.card_values)
+        self.card_suits = [card[1] for card in self.in_play_cards]
+
+        self.ranking = self.analyse_cards()
 
     def straight_check(self):
         """
@@ -59,6 +165,7 @@ class Player(object):
 
         if straight_values:
             return list(max(straight_values))[::-1], 4, max(max(straight_values))
+
         return None, None, None
 
     def flush_check(self, straight_cards=None):
@@ -86,6 +193,7 @@ class Player(object):
             if straight_cards:
 
                 if all(x in straight_cards for x in [card[0] for card in flush_cards]):
+
                     # check for specific case of royal flush
                     if all(x[0] in [10, 11, 12, 13, 14] for x in flush_cards):
                         # it is impossible for 2 players to have a royal flush so just return 9
@@ -123,21 +231,7 @@ class Player(object):
 
         return four_of_a_kind_cards, three_of_a_kind_cards, pairs_of_cards
 
-    def initialise_player_cards(self):
-        """
-        Initialises a players cards for analysis
-        Args:
-            player:
-
-        Returns:
-
-        """
-        self.card_values = [card[0] for card in self.cards]
-        self.card_values_counter = Counter(self.card_values)
-        self.card_suits = [card[1] for card in self.cards]
-
     def analyse_cards(self):
-        self.initialise_player_cards()
 
         player_card_rankings = []
 
@@ -152,11 +246,9 @@ class Player(object):
         if flush:
             player_card_rankings.append((flush, flush_ranking, flush_cards))
 
-        # NEW check for all kinds of cards
+        # check for all x-of-a-kind
         four_of_a_kind, three_of_a_kind, pairs = self.n_check()
 
-        # if four of a kind
-        # four_of_a_kind = n_check(player, 4)
         if four_of_a_kind:
             player_card_rankings.append(
                 (7, max(four_of_a_kind), [card for card in self.cards if card[0] == max(four_of_a_kind)]))
