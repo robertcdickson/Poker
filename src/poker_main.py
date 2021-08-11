@@ -42,29 +42,32 @@ class Poker(object):
         self.player_hands = {}
         self.number_of_players = len(self.players)
         self.seat_numbers = list(range(self.number_of_players))
-        positions_9_handed = {"SB": 0,
-                              "BB": 1,
-                              "UTG": 2,
-                              "UTG+1": 3,
-                              "UTG+2": 4,
-                              "LJ": 5,
-                              "HJ": 6,
-                              "CO": 7,
-                              "BTN": 8}
 
-        positions_6_handed = {0: "SB",
-                              1: "BB",
-                              2: "LJ",
-                              3: "HJ",
-                              4: "CO",
-                              5: "BTN"}
+        positions = {0: "SB",
+                     1: "BB",
+                     2: "UTG",
+                     3: "UTG+1",
+                     4: "UTG+2",
+                     5: "LJ",
+                     6: "HJ",
+                     7: "CO",
+                     8: "BTN"}
+
+        self.positions = positions.copy()
+
+        # rename positions based on the number of players
+        if self.number_of_players < 9:
+            removal_order = [4, 3, 2, 5, 6, 7, 8]
+            for j in range(0, 9 - self.number_of_players):
+                self.positions.pop(removal_order[j])
+        self.positions = {x: y for x, y in enumerate(self.positions.values())}
 
         # randomly seat players (will do for the moment)
         self.player_seats = {}
         random.shuffle(self.seat_numbers)
         for i, player in enumerate(players.keys()):
-            self.player_seats[player] = self.seat_numbers[i]
-            print(f"{player} is in position: {positions_6_handed[self.player_seats[player]]}")
+            self.player_seats[self.seat_numbers[i]] = player
+            print(f"Cards dealt to {player} in position: {self.positions[self.seat_numbers[i]]}")
 
     def deal(self):
         for player in self.players:
@@ -99,7 +102,6 @@ class Poker(object):
         self.deal()
 
         # post_blinds
-
 
 
 class Player(object):
