@@ -9,7 +9,7 @@ class Poker(object):
     A class that plays a single game of poker
     """
 
-    def __init__(self, players: dict):
+    def __init__(self, players: list):
         self.suits = ["clubs", "spades", "diamonds", "hearts"]
         self.values = {"2": 2,
                        "3": 3,
@@ -36,6 +36,7 @@ class Poker(object):
                          1: "pair",
                          0: "high_card"}
 
+        self.pot = 0.0
         self.deck = [(value, suit) for suit in self.suits for value in self.values.values()]
         self.remaining_deck = self.deck.copy()
         self.players = players
@@ -65,9 +66,13 @@ class Poker(object):
         # randomly seat players (will do for the moment)
         self.player_seats = {}
         random.shuffle(self.seat_numbers)
-        for i, player in enumerate(players.keys()):
+        for i, player in enumerate(players):
             self.player_seats[self.seat_numbers[i]] = player
-            print(f"Cards dealt to {player} in position: {self.positions[self.seat_numbers[i]]}")
+            print(f"Cards dealt to {player.name} in position: {self.positions[self.seat_numbers[i]]}")
+            if self.seat_numbers[i] == 0:
+                player.small_blind = True
+            elif self.seat_numbers[i] == 1:
+                player.big_blind = True
 
     def deal(self):
         for player in self.players:
@@ -75,7 +80,19 @@ class Poker(object):
             self.remaining_deck = [card for card in self.remaining_deck if card not in self.player_hands[player]]
 
     def post_blinds(self):
-        pass
+        for player in self.players:
+            if player.small_blind:
+                player.chips -= 0.5
+                self.pot += 0.5
+                print(f"{player.name} posts small blind and now has {player.chips} BB")
+            elif player.big_blind:
+                player.chips -= 1.0
+                self.pot += 1.0
+                print(f"{player.name} posts big blind and now has {player.chips} BB")
+            else:
+                continue
+        print(f"Pot is currently: {self.pot} BB's big")
+
 
     def pre_flop_action(self):
         pass
@@ -102,6 +119,7 @@ class Poker(object):
         self.deal()
 
         # post_blinds
+        self.post_blinds()
 
 
 class Player(object):
@@ -109,7 +127,13 @@ class Player(object):
     A class for a poker player.
     """
 
-    def __init__(self, cards: list, table_cards: list):
+    def __init__(self, name: str, chips: float, cards=None, table_cards=None):
+
+        if table_cards is None:
+            table_cards = []
+        if cards is None:
+            cards = []
+
         self.suits = ["clubs", "spades", "diamonds", "hearts"]
         self.values = {"2": 2,
                        "3": 3,
@@ -136,17 +160,21 @@ class Player(object):
                          1: "pair",
                          0: "high_card"}
 
+        self.chips = chips
+        self.name = name
         self.deck = [(value, suit) for suit in self.suits for value in self.values.values()]
         self.cards = cards
         self.table_cards = table_cards
         self.in_play_cards = self.cards + self.table_cards
         self.remaining_deck = [card for card in self.deck if card not in self.in_play_cards]
+        self.small_blind = False
+        self.big_blind = False
 
-        self.card_values = [card[0] for card in self.in_play_cards]
-        self.card_values_counter = Counter(self.card_values)
-        self.card_suits = [card[1] for card in self.in_play_cards]
+        # self.card_values = [card[0] for card in self.in_play_cards]
+        # self.card_values_counter = Counter(self.card_values)
+        # self.card_suits = [card[1] for card in self.in_play_cards]
 
-        self.ranking = self.analyse_cards()
+        # self.ranking = self.analyse_cards()
 
     def straight_check(self):
         """
