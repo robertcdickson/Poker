@@ -39,40 +39,45 @@ class Poker(object):
         self.pot = 0.0
         self.deck = [(value, suit) for suit in self.suits for value in self.values.values()]
         self.remaining_deck = self.deck.copy()
+
         self.players = players
         self.player_hands = {}
         self.number_of_players = len(self.players)
         self.seat_numbers = list(range(self.number_of_players))
 
-        positions = {0: "SB",
-                     1: "BB",
-                     2: "UTG",
-                     3: "UTG+1",
-                     4: "UTG+2",
-                     5: "LJ",
-                     6: "HJ",
-                     7: "CO",
-                     8: "BTN"}
+        self.actions = {"pre-flop": [],
+                        "flop": [],
+                        "turn": [],
+                        "river": []}
 
-        self.positions = positions.copy()
+        self.positions = {0: "SB",
+                          1: "BB",
+                          2: "UTG",
+                          3: "UTG+1",
+                          4: "UTG+2",
+                          5: "LJ",
+                          6: "HJ",
+                          7: "CO",
+                          8: "BTN"}
+
+        self.positions_keys = dict((v, k) for k, v in self.positions.items())
+
+        pre_flop_order = ["UTG", "UTG+1", "UTG+2", "LJ", "HJ", "CO", "BTN", "SB", "BB"]
+        post_flop_order = ["SB", "BB", "UTG", "UTG+1", "UTG+2", "LJ", "HJ", "CO", "BTN"]
+
+        removal_order = [4, 3, 2, 5, 6, 7, 8]
 
         # rename positions based on the number of players
         if self.number_of_players < 9:
-            removal_order = [4, 3, 2, 5, 6, 7, 8]
-            for j in range(0, 9 - self.number_of_players):
-                self.positions.pop(removal_order[j])
-        self.positions = {x: y for x, y in enumerate(self.positions.values())}
 
-        # randomly seat players (will do for the moment)
-        self.player_seats = {}
-        random.shuffle(self.seat_numbers)
-        for i, player in enumerate(players):
-            self.player_seats[self.seat_numbers[i]] = player
-            print(f"Cards dealt to {player.name} in position: {self.positions[self.seat_numbers[i]]}")
-            if self.seat_numbers[i] == 0:
-                player.small_blind = True
-            elif self.seat_numbers[i] == 1:
-                player.big_blind = True
+            # delete unnecessary players and get a playing order
+            for j in range(0, 9 - self.number_of_players):
+                del self.positions[removal_order[j]]
+
+        self.pre_flop_order = [x for x in pre_flop_order if x in self.positions.values()]
+        self.post_flop_order = [x for x in post_flop_order if x in self.positions.values()]
+
+        self.player_positions = dict((player.current_position, player) for player in self.players)
 
     def deal(self):
         for player in self.players:
@@ -81,21 +86,96 @@ class Poker(object):
 
     def post_blinds(self):
         for player in self.players:
-            if player.small_blind:
+            if player.current_position == "SB":
                 player.chips -= 0.5
                 self.pot += 0.5
                 print(f"{player.name} posts small blind and now has {player.chips} BB")
-            elif player.big_blind:
+            elif player.current_position == "BB":
                 player.chips -= 1.0
                 self.pot += 1.0
                 print(f"{player.name} posts big blind and now has {player.chips} BB")
             else:
                 continue
+
         print(f"Pot is currently: {self.pot} BB's big")
 
+    def betting_action(self, betting_round="pre-flop"):
 
-    def pre_flop_action(self):
-        pass
+        for player in self.player_positions.values():
+            player.to_act = True
+
+        i = 0
+        current_bet_size = 0
+
+        # while there is still a player to act
+        while any([player.to_act for player in self.player_positions.values()]):
+
+            # collect actions
+            round_actions = []
+
+            if betting_round == "pre-flop":
+                order = self.pre_flop_order
+                actions = {p: p.pre_flop_actions for p in self.player_positions.values()}
+            elif betting_round == "post-flop":
+                order = self.post_flop_order
+                actions = {p: p.post_flop_actions for p in self.player_positions.values()}
+            elif betting_round == "turn":
+                order = self.post_flop_order
+                actions = {p: p.turn_actions for p in self.player_positions.values()}
+            elif betting_round == "river":
+                order = self.post_flop_order
+                actions = {p: p.river_actions for p in self.player_positions.values()}
+            else:
+                raise ValueError("betting_round value not valid. only 'pre_flop', 'post_flop', 'turn', 'river' are valid.")
+
+            for position in self.pre_flop_order:
+
+                # check if position still active (this coule be removed by changing the for loop iterator
+                if position not in self.player_positions:
+                    continue
+
+                # check to see if any player is still active
+                if not any([player.to_act for player in self.players]):
+                    break
+
+                player = self.player_positions[position]
+
+                # get current action from player
+                # should this come as just one list or interactively?
+                current_action = actions[player][i]
+                print(f"{player}: {current_action}")
+
+                # not sure if this is useful at all
+                round_actions.append(current_action)
+
+                # if player is not active for whatever reason remove them from active_players
+                if not player.active:
+                    del self.player_positions[position]
+                    continue
+
+                # if fold make the player is inactive
+                if "fold" in current_action:
+                    player.active = False
+                    player.to_act = False
+                    del self.player_positions[position]
+
+                # if a player calls their balance loses a big blind and they remain active until all players are done
+                if "call" in current_action:
+                    player.chips -= current_bet_size
+                    player.to_act = False
+
+                # betting increase pot size
+                if "bet" in current_action:
+                    current_bet_size = float(current_action.split()[1])
+                    player.chips -= current_bet_size
+
+                    # once a bet is made all other players in the hand now have to act
+                    for active_player in self.player_positions.values():
+                        active_player.to_act = True
+                    player.to_act = False
+
+            i += 1
+
 
     def flop(self):
         pass
@@ -121,14 +201,58 @@ class Poker(object):
         # post_blinds
         self.post_blinds()
 
+        # pre flop action
+        print("-" * 80)
+        print("PREFLOP".center(80))
+        print("-" * 80)
+
+        self.betting_action(betting_round="pre-flop")
+
+        # Deal cards
+        print("-" * 80)
+        print("FLOP".center(80))
+        print("-" * 80)
+
+        # post flop action
+
+        self.betting_action(betting_round="post-flop")
+
+        # turn action
+        print("-" * 80)
+        print("TURN".center(80))
+        print("-" * 80)
+
+        self.betting_action(betting_round="turn")
+
+        # river action
+        print("-" * 80)
+        print("RIVER".center(80))
+        print("-" * 80)
+
+        self.betting_action(betting_round="river")
+
+
+
+    def __repr__(self):
+        return repr(f'Poker Game {self.players}')
+
 
 class Player(object):
     """
     A class for a poker player.
     """
 
-    def __init__(self, name: str, chips: float, cards=None, table_cards=None):
+    def __init__(self, name: str, chips: float, cards=None, table_cards=None, current_position=None,
+                 pre_flop=None, post_flop=None, turn=None, river=None):
 
+        if pre_flop is None:
+            pre_flop = ["fold"]
+        if post_flop is None:
+            post_flop = ["fold"]
+        if turn is None:
+            turn = ["fold"]
+        if river is None:
+            river = ["fold"]
         if table_cards is None:
             table_cards = []
         if cards is None:
@@ -169,6 +293,18 @@ class Player(object):
         self.remaining_deck = [card for card in self.deck if card not in self.in_play_cards]
         self.small_blind = False
         self.big_blind = False
+
+        if not current_position:
+            self.current_position = None
+        else:
+            self.current_position = current_position
+        self.active = True
+        self.to_act = False
+
+        self.pre_flop_actions = pre_flop
+        self.post_flop_actions = post_flop
+        self.turn_actions = turn
+        self.river_actions = river
 
         # self.card_values = [card[0] for card in self.in_play_cards]
         # self.card_values_counter = Counter(self.card_values)
@@ -307,3 +443,6 @@ class Player(object):
         highest_combination = max(player_card_rankings, key=lambda x: x[0])
 
         return highest_combination
+
+    def __repr__(self):
+        return repr(f'{self.name}, {self.chips} BB')
