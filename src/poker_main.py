@@ -44,6 +44,8 @@ class Poker(object):
         self.player_hands = {}
         self.number_of_players = len(self.players)
         self.seat_numbers = list(range(self.number_of_players))
+        self.active_players = [player.active for player in self.players if player.active is True]
+        self.betting_rounds = ["pre-flop", "post-flop", "turn", "river"]
 
         self.actions = {"pre-flop": [],
                         "flop": [],
@@ -100,7 +102,7 @@ class Poker(object):
         print(f"Pot is currently: {self.pot} BB's big")
 
     def betting_action(self, betting_round="pre-flop"):
-
+        # TODO: What happens when a player is all in?
         for player in self.player_positions.values():
             player.to_act = True
 
@@ -126,11 +128,12 @@ class Poker(object):
                 order = self.post_flop_order
                 actions = {p: p.river_actions for p in self.player_positions.values()}
             else:
-                raise ValueError("betting_round value not valid. only 'pre_flop', 'post_flop', 'turn', 'river' are valid.")
+                raise ValueError("betting_round value not valid. only "
+                                 "'pre_flop', 'post_flop', 'turn', 'river' are valid.")
 
             for position in self.pre_flop_order:
 
-                # check if position still active (this coule be removed by changing the for loop iterator
+                # check if position still active (this could be removed by changing the for loop iterator
                 if position not in self.player_positions:
                     continue
 
@@ -142,6 +145,11 @@ class Poker(object):
 
                 # get current action from player
                 # should this come as just one list or interactively?
+                if not actions[player]:
+                    player.active = False
+                    player.to_act = False
+                    continue
+
                 current_action = actions[player][i]
                 print(f"{player}: {current_action}")
 
@@ -162,12 +170,14 @@ class Poker(object):
                 # if a player calls their balance loses a big blind and they remain active until all players are done
                 if "call" in current_action:
                     player.chips -= current_bet_size
+                    self.pot += current_bet_size
                     player.to_act = False
 
                 # betting increase pot size
                 if "bet" in current_action:
                     current_bet_size = float(current_action.split()[1])
                     player.chips -= current_bet_size
+                    self.pot += current_bet_size
 
                     # once a bet is made all other players in the hand now have to act
                     for active_player in self.player_positions.values():
@@ -201,37 +211,16 @@ class Poker(object):
         # post_blinds
         self.post_blinds()
 
-        # pre flop action
-        print("-" * 80)
-        print("PREFLOP".center(80))
-        print("-" * 80)
-
-        self.betting_action(betting_round="pre-flop")
-
-        # Deal cards
-        print("-" * 80)
-        print("FLOP".center(80))
-        print("-" * 80)
-
-        # post flop action
-
-        self.betting_action(betting_round="post-flop")
-
-        # turn action
-        print("-" * 80)
-        print("TURN".center(80))
-        print("-" * 80)
-
-        self.betting_action(betting_round="turn")
-
-        # river action
-        print("-" * 80)
-        print("RIVER".center(80))
-        print("-" * 80)
-
-        self.betting_action(betting_round="river")
-
-
+        for betting_round in self.betting_rounds:
+            self.active_players = [player for player in self.players if player.active is True]
+            if len(self.active_players) == 1:
+                winner = self.active_players[0]
+                print(f"{self.active_players[0].name} wins {self.pot}")
+                break
+            print("-" * 80)
+            print(str(betting_round).center(80))
+            print("-" * 80)
+            self.betting_action(betting_round=betting_round)
 
     def __repr__(self):
         return repr(f'Poker Game {self.players}')
@@ -246,13 +235,13 @@ class Player(object):
                  pre_flop=None, post_flop=None, turn=None, river=None):
 
         if pre_flop is None:
-            pre_flop = ["fold"]
+            pre_flop = []
         if post_flop is None:
-            post_flop = ["fold"]
+            post_flop = []
         if turn is None:
-            turn = ["fold"]
+            turn = []
         if river is None:
-            river = ["fold"]
+            river = []
         if table_cards is None:
             table_cards = []
         if cards is None:
