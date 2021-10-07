@@ -91,10 +91,12 @@ class Poker(object):
             if player.current_position == "SB":
                 player.chips -= 0.5
                 self.pot += 0.5
+                player.called_for = 0.5
                 print(f"{player.name} posts small blind and now has {player.chips} BB")
             elif player.current_position == "BB":
                 player.chips -= 1.0
                 self.pot += 1.0
+                player.called_for = 1.0
                 print(f"{player.name} posts big blind and now has {player.chips} BB")
             else:
                 continue
@@ -107,13 +109,14 @@ class Poker(object):
             player.to_act = True
 
         i = 0
-        current_bet_size = 0
+        raise_size = 0
+
+        # collect actions
+        round_actions = []
+        current_raise_size = 0
 
         # while there is still a player to act
         while any([player.to_act for player in self.player_positions.values()]):
-
-            # collect actions
-            round_actions = []
 
             if betting_round == "pre-flop":
                 order = self.pre_flop_order
@@ -138,7 +141,7 @@ class Poker(object):
                     continue
 
                 # check to see if any player is still active
-                if not any([player.to_act for player in self.players]):
+                if not any([player.to_act for player in self.players if player.to_act]):
                     break
 
                 player = self.player_positions[position]
@@ -169,23 +172,44 @@ class Poker(object):
 
                 # if a player calls their balance loses a big blind and they remain active until all players are done
                 if "call" in current_action:
-                    player.chips -= current_bet_size
-                    self.pot += current_bet_size
+                    if player.called_for:
+                        player.chips -= (current_raise_size - player.called_for)
+                        self.pot += (current_raise_size - player.called_for)
+                    else:
+                        player.chips -= current_raise_size
+                        self.pot += current_raise_size
+
+                    player.called_for = current_raise_size
                     player.to_act = False
 
                 # betting increase pot size
-                if "bet" in current_action:
-                    current_bet_size = float(current_action.split()[1])
-                    player.chips -= current_bet_size
-                    self.pot += current_bet_size
+                if "raise to" in current_action:
+                    raise_size = float(current_action.split()[2])
+                    if raise_size > player.chips + player.called_for:
+                        raise ValueError("Raise size is larger than number of chips player has.")
+                    elif raise_size == player.chips + player.called_for:
+                        print(f"{player.name} is all in!")
 
+                    if player.called_for:
+                        player.chips -= (raise_size - player.called_for)
+                        self.pot += (raise_size - player.called_for)
+                    else:
+                        player.chips -= raise_size
+                        self.pot += raise_size
+
+                    current_raise_size = raise_size
+                    player.called_for = current_raise_size
                     # once a bet is made all other players in the hand now have to act
                     for active_player in self.player_positions.values():
                         active_player.to_act = True
+
                     player.to_act = False
 
             i += 1
-
+        print("=" * 40)
+        for player in self.players:
+            print(f"{player}")
+        print("=" * 40)
 
     def flop(self):
         pass
@@ -215,11 +239,13 @@ class Poker(object):
             self.active_players = [player for player in self.players if player.active is True]
             if len(self.active_players) == 1:
                 winner = self.active_players[0]
-                print(f"{self.active_players[0].name} wins {self.pot}")
+                winner.chips += self.pot
+                print(f"{winner.name} wins {self.pot} BB and has {winner.chips} BB")
+                self.pot = 0
                 break
-            print("-" * 80)
-            print(str(betting_round).center(80))
-            print("-" * 80)
+            print("-" * 40)
+            print(str(betting_round).center(40))
+            print("-" * 40)
             self.betting_action(betting_round=betting_round)
 
     def __repr__(self):
@@ -294,6 +320,7 @@ class Player(object):
         self.post_flop_actions = post_flop
         self.turn_actions = turn
         self.river_actions = river
+        self.called_for = 0
 
         # self.card_values = [card[0] for card in self.in_play_cards]
         # self.card_values_counter = Counter(self.card_values)
