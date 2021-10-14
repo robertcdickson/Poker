@@ -2,6 +2,41 @@ import random
 import random as rand
 import itertools
 from collections import Counter
+from termcolor import colored
+
+
+class Card(object):
+    def __init__(self, rank, suit):
+        self.ranks_to_values = {"2": 2,
+                                "3": 3,
+                                "4": 4,
+                                "5": 5,
+                                "6": 6,
+                                "7": 7,
+                                "8": 8,
+                                "9": 9,
+                                "T": 10,
+                                "J": 11,
+                                "Q": 12,
+                                "K": 13,
+                                "A": 14}
+
+        self.rank = rank
+        self.value = self.ranks_to_values[rank]
+        self.suit = suit
+
+        self.all_suits = {
+            "spades": "\u2660",
+            "hearts": "\u2665",
+            "clubs": "\u2663",
+            "diamonds": "\u2666",
+        }
+
+    def __repr__(self):
+        return str(f"{self.rank}{self.all_suits[self.suit]}")
+
+    def __str__(self):
+        return str(f"{self.rank}{self.all_suits[self.suit]}")
 
 
 class Poker(object):
@@ -19,7 +54,7 @@ class Poker(object):
                        "7": 7,
                        "8": 8,
                        "9": 9,
-                       "10": 10,
+                       "T": 10,
                        "J": 11,
                        "Q": 12,
                        "K": 13,
@@ -37,7 +72,7 @@ class Poker(object):
                          0: "high_card"}
 
         self.pot = 0.0
-        self.deck = [(value, suit) for suit in self.suits for value in self.values.values()]
+        self.deck = [Card(value, suit) for suit in self.suits for value in self.values]
         self.remaining_deck = self.deck.copy()
 
         self.players = players
@@ -46,6 +81,11 @@ class Poker(object):
         self.seat_numbers = list(range(self.number_of_players))
         self.active_players = [player.active for player in self.players if player.active is True]
         self.betting_rounds = ["pre-flop", "post-flop", "turn", "river"]
+
+        self.flop_cards = []
+        self.turn_card = []
+        self.river_card = []
+        self.table_cards = []
 
         self.actions = {"pre-flop": [],
                         "flop": [],
@@ -82,9 +122,16 @@ class Poker(object):
         self.player_positions = dict((player.current_position, player) for player in self.players)
 
     def deal(self):
+        print("=" * 40)
         for player in self.players:
             self.player_hands[player] = random.sample(self.deck, 2)
+            print_cards = ""
+            for card in self.player_hands[player]:
+                print_cards += str(card)
+            print(f"{player.name}: {print_cards}")
+
             self.remaining_deck = [card for card in self.remaining_deck if card not in self.player_hands[player]]
+        print("=" * 40)
 
     def post_blinds(self):
         for player in self.players:
@@ -92,16 +139,14 @@ class Poker(object):
                 player.chips -= 0.5
                 self.pot += 0.5
                 player.called_for = 0.5
-                print(f"{player.name} posts small blind and now has {player.chips} BB")
+                print(f"{player.name} posts small blind")
             elif player.current_position == "BB":
                 player.chips -= 1.0
                 self.pot += 1.0
                 player.called_for = 1.0
-                print(f"{player.name} posts big blind and now has {player.chips} BB")
+                print(f"{player.name} posts big blind")
             else:
                 continue
-
-        print(f"Pot is currently: {self.pot} BB's big")
 
     def betting_action(self, betting_round="pre-flop"):
         # TODO: What happens when a player is all in?
@@ -154,7 +199,7 @@ class Poker(object):
                     continue
 
                 current_action = actions[player][i]
-                print(f"{player}: {current_action}")
+                print(f"{player} {current_action}")
 
                 # not sure if this is useful at all
                 round_actions.append(current_action)
@@ -172,6 +217,10 @@ class Poker(object):
 
                 # if a player calls their balance loses a big blind and they remain active until all players are done
                 if "call" in current_action:
+                    if current_raise_size >= player.chips + player.called_for:
+                        print(f"{player.name} is all in")
+                        player.all_in = True
+
                     if player.called_for:
                         player.chips -= (current_raise_size - player.called_for)
                         self.pot += (current_raise_size - player.called_for)
@@ -188,6 +237,7 @@ class Poker(object):
                     if raise_size > player.chips + player.called_for:
                         raise ValueError("Raise size is larger than number of chips player has.")
                     elif raise_size == player.chips + player.called_for:
+                        player.all_in = True
                         print(f"{player.name} is all in!")
 
                     if player.called_for:
@@ -206,13 +256,22 @@ class Poker(object):
                     player.to_act = False
 
             i += 1
-        print("=" * 40)
+
+        print("-" * 40)
         for player in self.players:
-            print(f"{player}")
+            player.called_for = 0
+        print(f"Pot size is {self.pot} BB")
         print("=" * 40)
 
     def flop(self):
-        pass
+        self.flop_cards = random.sample(self.remaining_deck, 3)
+        print_flop_cards = ""
+        for card in self.flop_cards:
+            print_flop_cards += str(card)
+        print(f"Flop cards: {print_flop_cards}")
+        self.table_cards += self.flop_cards
+        for card in self.flop_cards:
+            self.remaining_deck.remove(card)
 
     def turn(self):
         pass
@@ -227,7 +286,6 @@ class Poker(object):
         pass
 
     def play_game(self):
-        print("A poker game!")
 
         # deal cards
         self.deal()
@@ -236,17 +294,25 @@ class Poker(object):
         self.post_blinds()
 
         for betting_round in self.betting_rounds:
-            self.active_players = [player for player in self.players if player.active is True]
+
+            self.active_players = [player for player in self.players if player.active]
+            if betting_round == "post-flop":
+                self.flop()
+            print("=" * 40)
+            print(str(betting_round).center(40))
+            print("=" * 40)
+            self.betting_action(betting_round=betting_round)
+            self.active_players = [player for player in self.players if player.active]
             if len(self.active_players) == 1:
                 winner = self.active_players[0]
                 winner.chips += self.pot
                 print(f"{winner.name} wins {self.pot} BB and has {winner.chips} BB")
                 self.pot = 0
                 break
-            print("-" * 40)
-            print(str(betting_round).center(40))
-            print("-" * 40)
-            self.betting_action(betting_round=betting_round)
+
+            if len(self.active_players) - len([player.all_in for player in self.active_players if player.all_in]) == 1:
+                print("No more betting as a player(s) are all in")
+                break
 
     def __repr__(self):
         return repr(f'Poker Game {self.players}')
@@ -282,7 +348,7 @@ class Player(object):
                        "7": 7,
                        "8": 8,
                        "9": 9,
-                       "10": 10,
+                       "T": 10,
                        "J": 11,
                        "Q": 12,
                        "K": 13,
@@ -301,14 +367,14 @@ class Player(object):
 
         self.chips = chips
         self.name = name
-        self.deck = [(value, suit) for suit in self.suits for value in self.values.values()]
+        self.deck = [Card(value, suit) for suit in self.suits for value in self.values]
         self.cards = cards
         self.table_cards = table_cards
         self.in_play_cards = self.cards + self.table_cards
         self.remaining_deck = [card for card in self.deck if card not in self.in_play_cards]
         self.small_blind = False
         self.big_blind = False
-
+        self.all_in = False
         if not current_position:
             self.current_position = None
         else:
@@ -328,7 +394,47 @@ class Player(object):
 
         # self.ranking = self.analyse_cards()
 
-    def straight_check(self):
+    def __repr__(self):
+        return str(f'{self.name}')
+
+
+class BoardAnalysis(object):
+    def __init__(self, players: list, table_cards: list):
+
+        self.players = players
+        self.table_cards = table_cards
+        self.suits = ["clubs", "spades", "diamonds", "hearts"]
+        self.values = {"2": 2,
+                       "3": 3,
+                       "4": 4,
+                       "5": 5,
+                       "6": 6,
+                       "7": 7,
+                       "8": 8,
+                       "9": 9,
+                       "T": 10,
+                       "J": 11,
+                       "Q": 12,
+                       "K": 13,
+                       "A": 14}
+
+        self.rankings = {9: "royal_flush",
+                         8: "straight_flush",
+                         7: "four_of_a_kind",
+                         6: "full_house",
+                         5: "flush",
+                         4: "straight",
+                         3: "three_of_a_kind",
+                         2: "two_pair",
+                         1: "pair",
+                         0: "high_card"}
+
+        self.deck = [Card(value, suit) for suit in self.suits for value in self.values]
+        self.all_player_cards = [player.cards for player in self.players]
+        self.in_play_cards = self.all_player_cards + self.table_cards
+        self.remaining_deck = [card for card in self.deck if card not in self.in_play_cards]
+
+    def straight_check(self, player):
         """
         Checks for a straight in a set of cards
 
@@ -415,50 +521,49 @@ class Player(object):
 
     def analyse_cards(self):
 
-        player_card_rankings = []
+        for player in self.players:
 
-        # check for straight
-        straight_cards, hand_ranking, straight_ranking = self.straight_check()
+            player_card_rankings = self.player.hand_ranking
 
-        if straight_cards:
-            player_card_rankings.append((hand_ranking, straight_ranking, straight_cards))
+            # check for straight
+            straight_cards, hand_ranking, straight_ranking = self.straight_check()
 
-        # check for flush or straight flush
-        flush_cards, flush, flush_ranking = self.flush_check(straight_cards)
-        if flush:
-            player_card_rankings.append((flush, flush_ranking, flush_cards))
+            if straight_cards:
+                player_card_rankings.append((hand_ranking, straight_ranking, straight_cards))
 
-        # check for all x-of-a-kind
-        four_of_a_kind, three_of_a_kind, pairs = self.n_check()
+            # check for flush or straight flush
+            flush_cards, flush, flush_ranking = self.flush_check(straight_cards)
+            if flush:
+                player_card_rankings.append((flush, flush_ranking, flush_cards))
 
-        if four_of_a_kind:
-            player_card_rankings.append(
-                (7, max(four_of_a_kind), [card for card in self.cards if card[0] == max(four_of_a_kind)]))
-        elif pairs and three_of_a_kind:
-            # full house
-            player_card_rankings.append((6, max(three_of_a_kind), [card for card in self.cards if
-                                                                   card[0] == max(three_of_a_kind) or card[0] == max(
-                                                                       pairs)]))
-        elif three_of_a_kind:
-            player_card_rankings.append(
-                (3, max(three_of_a_kind), [card for card in self.cards if card[0] == max(three_of_a_kind)]))
-        elif pairs:
-            if len(pairs) > 1:
-                # two pair
-                highest_pairs = pairs[-2:]
-                highest_pair_ranking = max(pairs)
+            # check for all x-of-a-kind
+            four_of_a_kind, three_of_a_kind, pairs = self.n_check()
+
+            if four_of_a_kind:
                 player_card_rankings.append(
-                    (2, highest_pair_ranking, [card for card in self.cards if card[0] in highest_pairs]))
+                    (7, max(four_of_a_kind), [card for card in self.cards if card[0] == max(four_of_a_kind)]))
+            elif pairs and three_of_a_kind:
+                # full house
+                player_card_rankings.append((6, max(three_of_a_kind), [card for card in self.cards if
+                                                                       card[0] == max(three_of_a_kind) or card[0] == max(
+                                                                           pairs)]))
+            elif three_of_a_kind:
+                player_card_rankings.append(
+                    (3, max(three_of_a_kind), [card for card in self.cards if card[0] == max(three_of_a_kind)]))
+            elif pairs:
+                if len(pairs) > 1:
+                    # two pair
+                    highest_pairs = pairs[-2:]
+                    highest_pair_ranking = max(pairs)
+                    player_card_rankings.append(
+                        (2, highest_pair_ranking, [card for card in self.cards if card[0] in highest_pairs]))
+                else:
+                    highest_pair = pairs[0]
+                    player_card_rankings.append(
+                        (1, highest_pair, [card for card in self.cards if card[0] == highest_pair]))
             else:
-                highest_pair = pairs[0]
-                player_card_rankings.append(
-                    (1, highest_pair, [card for card in self.cards if card[0] == highest_pair]))
-        else:
-            player_card_rankings.append((0, max([card[0] for card in self.cards]), max(self.cards)))
+                player_card_rankings.append((0, max([card[0] for card in self.cards]), max(self.cards)))
 
-        highest_combination = max(player_card_rankings, key=lambda x: x[0])
+            highest_combination = max(player_card_rankings, key=lambda x: x[0])
 
-        return highest_combination
-
-    def __repr__(self):
-        return repr(f'{self.name}, {self.chips} BB')
+            return highest_combination
