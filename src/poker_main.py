@@ -353,7 +353,7 @@ class Player(object):
                        "Q": 12,
                        "K": 13,
                        "A": 14}
-
+        self.hand_ranking = []
         self.rankings = {9: "royal_flush",
                          8: "straight_flush",
                          7: "four_of_a_kind",
@@ -370,6 +370,7 @@ class Player(object):
         self.deck = [Card(value, suit) for suit in self.suits for value in self.values]
         self.cards = cards
         self.table_cards = table_cards
+        self.known_cards = self.table_cards + self.cards
         self.in_play_cards = self.cards + self.table_cards
         self.remaining_deck = [card for card in self.deck if card not in self.in_play_cards]
         self.small_blind = False
@@ -434,20 +435,21 @@ class BoardAnalysis(object):
         self.in_play_cards = self.all_player_cards + self.table_cards
         self.remaining_deck = [card for card in self.deck if card not in self.in_play_cards]
 
-    def straight_check(self, player):
+    def straight_check(self, cards):
         """
         Checks for a straight in a set of cards
 
         Args:
+            cards:
             self:
 
         Returns:
 
         """
-        if not len(set(self.card_values)) > 4:
+        if not len(set(cards)) > 4:
             return None, None, None
-
-        straight_values = [combo for combo in itertools.combinations(self.card_values, 5)
+        card_values = [x.value for x in cards]
+        straight_values = [combo for combo in itertools.combinations(card_values, 5)
                            if sorted(combo) == [2, 3, 4, 5, 14] or
                            max(combo) - min(combo) == 4 and len(set(combo)) == 5]
 
@@ -456,7 +458,7 @@ class BoardAnalysis(object):
 
         return None, None, None
 
-    def flush_check(self, straight_cards=None):
+    def flush_check(self, cards, straight_cards=None):
         """
         Checks for a flush in a given set of cards
         Args:
@@ -466,8 +468,8 @@ class BoardAnalysis(object):
         Returns:
 
         """
-
-        card_counts = Counter(self.card_suits)
+        card_suits = [card.suit for card in cards]
+        card_counts = Counter(card_suits)
 
         if any(val >= 5 for val in card_counts.values()):
 
@@ -475,27 +477,27 @@ class BoardAnalysis(object):
             flush_suit = max(card_counts, key=card_counts.get)
 
             # get flush cards
-            flush_cards = [card for card in self.cards if card[1] == flush_suit]
+            flush_cards = [card for card in cards if card.suit == flush_suit]
 
             # check for any straight flush
             if straight_cards:
 
-                if all(x in straight_cards for x in [card[0] for card in flush_cards]):
+                if all(x in straight_cards for x in [card.value for card in flush_cards]):
 
                     # check for specific case of royal flush
-                    if all(x[0] in [10, 11, 12, 13, 14] for x in flush_cards):
+                    if all(x.value in [10, 11, 12, 13, 14] for x in flush_cards):
                         # it is impossible for 2 players to have a royal flush so just return 9
                         return flush_cards, 9, None
 
-                    flush_ranking = max([card[0] for card in flush_cards if card[0] in straight_cards])
+                    flush_ranking = max([card.value for card in flush_cards if card.value in straight_cards])
                     return flush_cards, 8, flush_ranking
 
-            flush_ranking = max([card[0] for card in flush_cards])
+            flush_ranking = max([card.value for card in flush_cards])
             return flush_cards, 5, flush_ranking
         else:
             return None, None, None
 
-    def n_check(self):
+    def n_check(self, cards):
         """
         Checks for n number of cards with the same numerical value
 
@@ -509,7 +511,7 @@ class BoardAnalysis(object):
         three_of_a_kind_cards = []
         four_of_a_kind_cards = []
 
-        for key, value in self.card_values_counter.items():
+        for key, value in Counter([x.value for x in cards]).items():
             if value == 4:
                 four_of_a_kind_cards += [key]
             elif value == 3:
@@ -523,47 +525,47 @@ class BoardAnalysis(object):
 
         for player in self.players:
 
-            player_card_rankings = self.player.hand_ranking
-
+            player_card_rankings = player.hand_ranking
+            all_cards = self.table_cards + player.cards
             # check for straight
-            straight_cards, hand_ranking, straight_ranking = self.straight_check()
+            straight_cards, hand_ranking, straight_ranking = self.straight_check(all_cards)
 
             if straight_cards:
                 player_card_rankings.append((hand_ranking, straight_ranking, straight_cards))
 
             # check for flush or straight flush
-            flush_cards, flush, flush_ranking = self.flush_check(straight_cards)
+            flush_cards, flush, flush_ranking = self.flush_check(all_cards, straight_cards)
             if flush:
                 player_card_rankings.append((flush, flush_ranking, flush_cards))
 
             # check for all x-of-a-kind
-            four_of_a_kind, three_of_a_kind, pairs = self.n_check()
+            four_of_a_kind, three_of_a_kind, pairs = self.n_check(all_cards)
 
             if four_of_a_kind:
                 player_card_rankings.append(
-                    (7, max(four_of_a_kind), [card for card in self.cards if card[0] == max(four_of_a_kind)]))
+                    (7, max(four_of_a_kind), [card for card in all_cards if card.value == max(four_of_a_kind)]))
             elif pairs and three_of_a_kind:
                 # full house
-                player_card_rankings.append((6, max(three_of_a_kind), [card for card in self.cards if
-                                                                       card[0] == max(three_of_a_kind) or card[0] == max(
+                player_card_rankings.append((6, max(three_of_a_kind), [card for card in all_cards if
+                                                                       card == max(three_of_a_kind) or card.value == max(
                                                                            pairs)]))
             elif three_of_a_kind:
                 player_card_rankings.append(
-                    (3, max(three_of_a_kind), [card for card in self.cards if card[0] == max(three_of_a_kind)]))
+                    (3, max(three_of_a_kind), [card for card in all_cards if card.value == max(three_of_a_kind)]))
             elif pairs:
                 if len(pairs) > 1:
                     # two pair
                     highest_pairs = pairs[-2:]
                     highest_pair_ranking = max(pairs)
                     player_card_rankings.append(
-                        (2, highest_pair_ranking, [card for card in self.cards if card[0] in highest_pairs]))
+                        (2, highest_pair_ranking, [card for card in all_cards if card.value in highest_pairs]))
                 else:
                     highest_pair = pairs[0]
                     player_card_rankings.append(
-                        (1, highest_pair, [card for card in self.cards if card[0] == highest_pair]))
+                        (1, highest_pair, [card for card in all_cards if card.value == highest_pair]))
             else:
-                player_card_rankings.append((0, max([card[0] for card in self.cards]), max(self.cards)))
+                player_card_rankings.append((0, max([card.value for card in all_cards]), max([card.value for card in all_cards])))
 
             highest_combination = max(player_card_rankings, key=lambda x: x[0])
 
-            return highest_combination
+            print(highest_combination)
