@@ -125,6 +125,7 @@ class Poker(object):
         print("=" * 40)
         for player in self.players:
             self.player_hands[player] = random.sample(self.deck, 2)
+            player.cards = self.player_hands[player]
             print_cards = ""
             for card in self.player_hands[player]:
                 print_cards += str(card)
@@ -154,7 +155,6 @@ class Poker(object):
             player.to_act = True
 
         i = 0
-        raise_size = 0
 
         # collect actions
         round_actions = []
@@ -214,6 +214,10 @@ class Poker(object):
                     player.active = False
                     player.to_act = False
                     del self.player_positions[position]
+
+                # if check, need to stay active but not to act
+                if "check" in current_action:
+                    player.to_act = False
 
                 # if a player calls their balance loses a big blind and they remain active until all players are done
                 if "call" in current_action:
@@ -522,7 +526,7 @@ class BoardAnalysis(object):
         return four_of_a_kind_cards, three_of_a_kind_cards, pairs_of_cards
 
     def analyse_cards(self):
-
+        rankings = {}
         for player in self.players:
 
             player_card_rankings = player.hand_ranking
@@ -568,4 +572,5 @@ class BoardAnalysis(object):
 
             highest_combination = max(player_card_rankings, key=lambda x: x[0])
 
-            print(highest_combination)
+            rankings[player.name] = highest_combination
+        return rankings
