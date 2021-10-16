@@ -124,7 +124,8 @@ class Poker(object):
     def deal(self):
         print("=" * 40)
         for player in self.players:
-            self.player_hands[player] = random.sample(self.deck, 2)
+            self.player_hands[player] = random.sample(self.remaining_deck, 2)
+            self.remaining_deck = [card for card in self.remaining_deck if card not in self.player_hands[player]]
             player.cards = self.player_hands[player]
             print_cards = ""
             for card in self.player_hands[player]:
@@ -278,10 +279,16 @@ class Poker(object):
             self.remaining_deck.remove(card)
 
     def turn(self):
-        pass
+        self.turn_card = random.sample(self.remaining_deck, 1)[0]
+        print(f"Turn card: {self.turn_card}")
+        self.table_cards.append(self.turn_card)
+        self.remaining_deck.remove(self.turn_card)
 
     def river(self):
-        pass
+        self.river_card = random.sample(self.remaining_deck, 1)[0]
+        print(f"River card: {self.river_card}")
+        self.table_cards.append(self.river_card)
+        self.remaining_deck.remove(self.river_card)
 
     def showdown(self):
         pass
@@ -302,6 +309,10 @@ class Poker(object):
             self.active_players = [player for player in self.players if player.active]
             if betting_round == "post-flop":
                 self.flop()
+            elif betting_round == "turn":
+                self.turn()
+            elif betting_round == "river":
+                self.river()
             print("=" * 40)
             print(str(betting_round).center(40))
             print("=" * 40)
