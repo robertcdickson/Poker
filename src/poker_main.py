@@ -280,18 +280,29 @@ class Poker(object):
 
     def turn(self):
         self.turn_card = random.sample(self.remaining_deck, 1)[0]
+
         print(f"Turn card: {self.turn_card}")
         self.table_cards.append(self.turn_card)
+        print_table_cards = ""
+        for card in self.table_cards:
+            print_table_cards += str(card)
+        print(f"Table Cards: {print_table_cards}")
+
         self.remaining_deck.remove(self.turn_card)
 
     def river(self):
         self.river_card = random.sample(self.remaining_deck, 1)[0]
         print(f"River card: {self.river_card}")
         self.table_cards.append(self.river_card)
+        print_table_cards = ""
+        for card in self.table_cards:
+            print_table_cards += str(card)
+        print(f"Table Cards: {print_table_cards}")
         self.remaining_deck.remove(self.river_card)
 
     def showdown(self):
-        pass
+        showdown_card_analysis = BoardAnalysis(self.active_players, self.table_cards)
+
 
     def summary(self):
         pass
@@ -417,6 +428,7 @@ class Player(object):
 class BoardAnalysis(object):
     def __init__(self, players: list, table_cards: list):
 
+        # TODO: Kicker for pairs should include highest 5 cards!!!!
         self.players = players
         self.table_cards = table_cards
         self.suits = ["clubs", "spades", "diamonds", "hearts"]
@@ -434,6 +446,8 @@ class BoardAnalysis(object):
                        "K": 13,
                        "A": 14}
 
+        self.values_to_ranks = {value: key for key, value in self.values.items()}
+
         self.rankings = {9: "royal_flush",
                          8: "straight_flush",
                          7: "four_of_a_kind",
@@ -449,6 +463,7 @@ class BoardAnalysis(object):
         self.all_player_cards = [player.cards for player in self.players]
         self.in_play_cards = self.all_player_cards + self.table_cards
         self.remaining_deck = [card for card in self.deck if card not in self.in_play_cards]
+        self.analysis = self.analyse_cards()
 
     def straight_check(self, cards):
         """
@@ -538,6 +553,7 @@ class BoardAnalysis(object):
 
     def analyse_cards(self):
         rankings = {}
+        print_rankings = {}
         for player in self.players:
 
             player_card_rankings = player.hand_ranking
@@ -562,7 +578,8 @@ class BoardAnalysis(object):
             elif pairs and three_of_a_kind:
                 # full house
                 player_card_rankings.append((6, max(three_of_a_kind), [card for card in all_cards if
-                                                                       card == max(three_of_a_kind) or card.value == max(
+                                                                       card == max(
+                                                                           three_of_a_kind) or card.value == max(
                                                                            pairs)]))
             elif three_of_a_kind:
                 player_card_rankings.append(
@@ -579,9 +596,19 @@ class BoardAnalysis(object):
                     player_card_rankings.append(
                         (1, highest_pair, [card for card in all_cards if card.value == highest_pair]))
             else:
-                player_card_rankings.append((0, max([card.value for card in all_cards]), max([card.value for card in all_cards])))
+                player_card_rankings.append(
+                    (0, max([card.value for card in all_cards]), max([card.value for card in all_cards])))
 
             highest_combination = max(player_card_rankings, key=lambda x: x[0])
 
             rankings[player.name] = highest_combination
-        return rankings
+
+            print_rankings[player.name] = [self.rankings[highest_combination[0]],
+                                           self.values_to_ranks[highest_combination[1]]]
+        print(rankings)
+        print_rankings["winner"] = max(rankings)
+
+        return print_rankings
+
+    def __str__(self):
+        return str(f"{self.analysis}")
