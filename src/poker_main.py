@@ -558,9 +558,9 @@ class BoardAnalysis(object):
 
             player_card_rankings = player.hand_ranking
             all_cards = self.table_cards + player.cards
+
             # check for straight
             straight_cards, hand_ranking, straight_ranking = self.straight_check(all_cards)
-
             if straight_cards:
                 player_card_rankings.append((hand_ranking, straight_ranking, straight_cards))
 
@@ -573,8 +573,11 @@ class BoardAnalysis(object):
             four_of_a_kind, three_of_a_kind, pairs = self.n_check(all_cards)
 
             if four_of_a_kind:
+                four_of_a_kind_cards = [card for card in all_cards if card.value == max(four_of_a_kind)]
+                kicker = max([card for card in all_cards if card.value != max(four_of_a_kind)], key=lambda x: x.value)
+                four_of_a_kind_cards.append(kicker)
                 player_card_rankings.append(
-                    (7, max(four_of_a_kind), [card for card in all_cards if card.value == max(four_of_a_kind)]))
+                    (7, max(four_of_a_kind),  four_of_a_kind_cards))
             elif pairs and three_of_a_kind:
                 # full house
                 player_card_rankings.append((6, max(three_of_a_kind), [card for card in all_cards if
@@ -582,8 +585,15 @@ class BoardAnalysis(object):
                                                                            three_of_a_kind) or card.value == max(
                                                                            pairs)]))
             elif three_of_a_kind:
+                def maxN(elements, n):
+                    return sorted(elements, reverse=True, key=lambda x: x.value)[:n]
+
+                three_of_a_kind_cards = [card for card in all_cards if card.value == max(three_of_a_kind)]
+                kickers = maxN([card for card in all_cards if card.value != max(three_of_a_kind)], n=2)
+                print(kickers)
+                three_of_a_kind_cards += kickers
                 player_card_rankings.append(
-                    (3, max(three_of_a_kind), [card for card in all_cards if card.value == max(three_of_a_kind)]))
+                    (3, max(three_of_a_kind), three_of_a_kind_cards))
             elif pairs:
                 if len(pairs) > 1:
                     # two pair
