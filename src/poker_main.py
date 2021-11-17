@@ -628,7 +628,7 @@ class BoardAnalysis(object):
                                            self.values_to_ranks[highest_combination[1]],
                                            ]
 
-        print_rankings["winner"] = max(rankings.values())
+        print_rankings["winner"] = max(rankings, key=rankings.get)
 
         return print_rankings
 
