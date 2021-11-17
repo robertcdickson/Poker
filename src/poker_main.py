@@ -38,6 +38,12 @@ class Card(object):
     def __str__(self):
         return str(f"{self.rank}{self.all_suits[self.suit]}")
 
+    def __lt__(self, other):
+        return self.value < other.value
+
+    def __gt__(self, other):
+        return self.value > other.value
+
 
 class Poker(object):
     """
@@ -464,6 +470,7 @@ class BoardAnalysis(object):
         self.in_play_cards = self.all_player_cards + self.table_cards
         self.remaining_deck = [card for card in self.deck if card not in self.in_play_cards]
         self.analysis = self.analyse_cards()
+        self.winner = self.analysis["winner"]
 
     def straight_check(self, cards):
         """
@@ -554,20 +561,22 @@ class BoardAnalysis(object):
     def analyse_cards(self):
         rankings = {}
         print_rankings = {}
+
         for player in self.players:
 
+            # combine players cards and table cards to give rankable list
             player_card_rankings = player.hand_ranking
             all_cards = self.table_cards + player.cards
 
             # check for straight
             straight_cards, hand_ranking, straight_ranking = self.straight_check(all_cards)
             if straight_cards:
-                player_card_rankings.append((hand_ranking, straight_ranking, straight_cards))
+                player_card_rankings.append((hand_ranking, straight_ranking, straight_cards, []))
 
             # check for flush or straight flush
             flush_cards, flush, flush_ranking = self.flush_check(all_cards, straight_cards)
             if flush:
-                player_card_rankings.append((flush, flush_ranking, flush_cards))
+                player_card_rankings.append((flush, flush_ranking, flush_cards, []))
 
             # check for all x-of-a-kind
             four_of_a_kind, three_of_a_kind, pairs = self.n_check(all_cards)
@@ -577,23 +586,25 @@ class BoardAnalysis(object):
                 kicker = max([card for card in all_cards if card.value != max(four_of_a_kind)], key=lambda x: x.value)
                 four_of_a_kind_cards.append(kicker)
                 player_card_rankings.append(
-                    (7, max(four_of_a_kind),  four_of_a_kind_cards))
+                    (7, max(four_of_a_kind), four_of_a_kind_cards, [kicker.value]))
+
             elif pairs and three_of_a_kind:
                 # full house
                 player_card_rankings.append((6, max(three_of_a_kind), [card for card in all_cards if
                                                                        card == max(
                                                                            three_of_a_kind) or card.value == max(
-                                                                           pairs)]))
+                                                                           pairs)], []))
+
             elif three_of_a_kind:
                 def maxN(elements, n):
                     return sorted(elements, reverse=True, key=lambda x: x.value)[:n]
 
                 three_of_a_kind_cards = [card for card in all_cards if card.value == max(three_of_a_kind)]
                 kickers = maxN([card for card in all_cards if card.value != max(three_of_a_kind)], n=2)
-                print(kickers)
                 three_of_a_kind_cards += kickers
-                player_card_rankings.append(
-                    (3, max(three_of_a_kind), three_of_a_kind_cards))
+                kicker_values = [self.values[x[0]] for x in kickers]
+                player_card_rankings.append((3, max(three_of_a_kind), three_of_a_kind_cards, kicker_values))
+
             elif pairs:
                 if len(pairs) > 1:
                     # two pair
@@ -614,9 +625,10 @@ class BoardAnalysis(object):
             rankings[player.name] = highest_combination
 
             print_rankings[player.name] = [self.rankings[highest_combination[0]],
-                                           self.values_to_ranks[highest_combination[1]]]
-        print(rankings)
-        print_rankings["winner"] = max(rankings)
+                                           self.values_to_ranks[highest_combination[1]],
+                                           ]
+
+        print_rankings["winner"] = max(rankings.values())
 
         return print_rankings
 
