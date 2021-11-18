@@ -434,7 +434,6 @@ class Player(object):
 class BoardAnalysis(object):
     def __init__(self, players: list, table_cards: list):
 
-        # TODO: Kicker for pairs should include highest 5 cards!!!!
         self.players = players
         self.table_cards = table_cards
         self.suits = ["clubs", "spades", "diamonds", "hearts"]
@@ -602,7 +601,7 @@ class BoardAnalysis(object):
                 three_of_a_kind_cards = [card for card in all_cards if card.value == max(three_of_a_kind)]
                 kickers = maxN([card for card in all_cards if card.value != max(three_of_a_kind)], n=2)
                 three_of_a_kind_cards += kickers
-                kicker_values = [self.values[x[0]] for x in kickers]
+                kicker_values = [kicker.value for kicker in kickers]
                 player_card_rankings.append((3, max(three_of_a_kind), three_of_a_kind_cards, kicker_values))
 
             elif pairs:
@@ -625,10 +624,11 @@ class BoardAnalysis(object):
             rankings[player.name] = highest_combination
 
             print_rankings[player.name] = [self.rankings[highest_combination[0]],
-                                           self.values_to_ranks[highest_combination[1]],
+                                            highest_combination[2]
                                            ]
 
-        print_rankings["winner"] = max(rankings, key=rankings.get)
+        winner = max(rankings, key=rankings.get)
+        print_rankings["winner"] = {winner: print_rankings[winner]}
 
         return print_rankings
 
