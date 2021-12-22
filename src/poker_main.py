@@ -309,7 +309,6 @@ class Poker(object):
     def showdown(self):
         showdown_card_analysis = BoardAnalysis(self.active_players, self.table_cards)
 
-
     def summary(self):
         pass
 
@@ -468,8 +467,8 @@ class BoardAnalysis(object):
         self.all_player_cards = [player.cards for player in self.players]
         self.in_play_cards = self.all_player_cards + self.table_cards
         self.remaining_deck = [card for card in self.deck if card not in self.in_play_cards]
-        self.analysis = self.analyse_cards()
-        self.winner = self.analysis["winner"]
+        self.players_analysis = self.analyse_cards()
+        self.winners = self.players_analysis["winners"]
 
     def straight_check(self, cards):
         """
@@ -622,13 +621,19 @@ class BoardAnalysis(object):
             highest_combination = max(player_card_rankings, key=lambda x: x[0])
 
             rankings[player.name] = highest_combination
+            # TODO: highest_combination[1] (ranked winning card values) isn't used.... bin?
 
-            print_rankings[player.name] = [self.rankings[highest_combination[0]],
-                                            highest_combination[2]
-                                           ]
+            print_rankings[player.name] = (highest_combination[0], highest_combination[3])
 
-        winner = max(rankings, key=rankings.get)
-        print_rankings["winner"] = {winner: print_rankings[winner]}
+        print(print_rankings)
+        max_ranking = print_rankings[max(print_rankings)][0]
+        max_ranking_players = {k: v for k, v in print_rankings.items() if v[0] == max_ranking}
+        print(f"max ranked players {max_ranking_players.values()}")
+        max_kicker = max([x[1] for x in max_ranking_players.values()])
+        max_ranking_players_with_kickers = {k: v for k, v in print_rankings.items() if v[1] == max_kicker}
+
+        winners = max_ranking_players_with_kickers.keys()
+        print_rankings["winners"] = list(winners)
 
         return print_rankings
 
