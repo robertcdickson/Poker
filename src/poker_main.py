@@ -512,13 +512,14 @@ class BoardAnalysis(object):
             flush_suit = max(card_counts, key=card_counts.get)
 
             # get flush cards
-            flush_cards = [card for card in cards if card.suit == flush_suit]
-
+            # the reverse sorted and indexing is needed to remove clubs that are outside the top 5 highest value
+            flush_cards = sorted([card for card in cards if card.suit == flush_suit],
+                                 key=lambda x: x.value,
+                                 reverse=True)[0:5]
             # check for any straight flush
             if straight_cards:
 
                 if all(x in straight_cards for x in [card.value for card in flush_cards]):
-
                     # check for specific case of royal flush
                     if all(x.value in [10, 11, 12, 13, 14] for x in flush_cards):
                         # it is impossible for 2 players to have a royal flush so just return 9
@@ -574,7 +575,8 @@ class BoardAnalysis(object):
             # check for flush or straight flush
             flush_cards, flush, flush_ranking = self.flush_check(all_cards, straight_cards)
             if flush:
-                player_card_rankings.append((flush, flush_ranking, flush_cards, []))
+                player_card_rankings.append((flush, flush_ranking, flush_cards, sorted([x.value for x in flush_cards],
+                                                                                       reverse=True)))
 
             # check for all x-of-a-kind
             four_of_a_kind, three_of_a_kind, pairs = self.n_check(all_cards)
