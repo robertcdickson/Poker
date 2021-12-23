@@ -581,17 +581,18 @@ class BoardAnalysis(object):
 
             if four_of_a_kind:
                 four_of_a_kind_cards = [card for card in all_cards if card.value == max(four_of_a_kind)]
-                kicker = max([card for card in all_cards if card.value != max(four_of_a_kind)], key=lambda x: x.value)
-                four_of_a_kind_cards.append(kicker)
+                kickers = max([card for card in all_cards if card.value != max(four_of_a_kind)], key=lambda x: x.value)
+                four_of_a_kind_cards.append(kickers)
                 player_card_rankings.append(
-                    (7, max(four_of_a_kind), four_of_a_kind_cards, [kicker.value]))
+                    (7, max(four_of_a_kind), four_of_a_kind_cards, [kickers.value]))
 
             elif pairs and three_of_a_kind:
                 # full house
-                player_card_rankings.append((6, max(three_of_a_kind), [card for card in all_cards if
-                                                                       card == max(
-                                                                           three_of_a_kind) or card.value == max(
-                                                                           pairs)], []))
+                full_house_cards = [card for card in all_cards if card.value == max(three_of_a_kind) or card.value == max(pairs)]
+                ranking = dict(Counter([x.value for x in full_house_cards]))
+                ranking = {v: k for k, v in ranking.items()}
+                ranking = [ranking[3], ranking[2]]
+                player_card_rankings.append((6, max(three_of_a_kind), full_house_cards, ranking))
 
             elif three_of_a_kind:
                 def maxN(elements, n):
@@ -626,8 +627,8 @@ class BoardAnalysis(object):
             print_rankings[player.name] = (highest_combination[0], highest_combination[3])
 
         print(print_rankings)
-        max_ranking = print_rankings[max(print_rankings)][0]
-        max_ranking_players = {k: v for k, v in print_rankings.items() if v[0] == max_ranking}
+        max_ranking = max(print_rankings.values())
+        max_ranking_players = {k: v for k, v in print_rankings.items() if v == max_ranking}
         print(f"max ranked players {max_ranking_players.values()}")
         max_kicker = max([x[1] for x in max_ranking_players.values()])
         max_ranking_players_with_kickers = {k: v for k, v in print_rankings.items() if v[1] == max_kicker}
