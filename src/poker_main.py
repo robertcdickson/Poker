@@ -7,6 +7,12 @@ from termcolor import colored
 
 class Card(object):
     def __init__(self, rank, suit):
+        """
+
+        Args:
+            rank:
+            suit:
+        """
         self.ranks_to_values = {"2": 2,
                                 "3": 3,
                                 "4": 4,
@@ -533,6 +539,9 @@ class BoardAnalysis(object):
         else:
             return None, None, None
 
+    def maxN(self, elements, n):
+        return sorted(elements, reverse=True, key=lambda x: x.value)[:n]
+
     def n_check(self, cards):
         """
         Checks for n number of cards with the same numerical value
@@ -597,32 +606,35 @@ class BoardAnalysis(object):
                 player_card_rankings.append((6, max(three_of_a_kind), full_house_cards, ranking))
 
             elif three_of_a_kind:
-                def maxN(elements, n):
-                    return sorted(elements, reverse=True, key=lambda x: x.value)[:n]
 
                 three_of_a_kind_cards = [card for card in all_cards if card.value == max(three_of_a_kind)]
-                kickers = maxN([card for card in all_cards if card.value != max(three_of_a_kind)], n=2)
-                three_of_a_kind_cards += kickers
+                kickers = sorted(self.maxN([x for x in all_cards if x not in three_of_a_kind_cards], n=2), key=lambda x: x.value, reverse=True)
                 kicker_values = [kicker.value for kicker in kickers]
-                player_card_rankings.append((3, max(three_of_a_kind), three_of_a_kind_cards, kicker_values))
+                player_card_rankings.append((3, three_of_a_kind_cards + kickers, max(three_of_a_kind), kicker_values))
 
             elif pairs:
                 if len(pairs) > 1:
                     # two pair
                     highest_pairs = pairs[-2:]
                     highest_pair_ranking = max(pairs)
+                    kickers = sorted(self.maxN([x for x in all_cards if x.value not in highest_pairs], n=5), key=lambda x: x.value, reverse=True)
+                    kicker_values = [x.value for x in kickers]
                     player_card_rankings.append(
-                        (2, highest_pair_ranking, [card for card in all_cards if card.value in highest_pairs]))
+                        (2, [card for card in all_cards if card.value in highest_pairs] + kickers, highest_pair_ranking, kicker_values))
                 else:
                     highest_pair = pairs[0]
+                    kickers = sorted(self.maxN([x for x in all_cards if x.value != highest_pair], n=3), key=lambda x: x.value, reverse=True)
+                    kicker_values = [x.value for x in kickers]
                     player_card_rankings.append(
-                        (1, highest_pair, [card for card in all_cards if card.value == highest_pair]))
+                        (1, [card for card in all_cards if card.value == highest_pair] + kickers, highest_pair, kicker_values))
             else:
+                kickers = sorted(self.maxN(all_cards, n=5), key=lambda x: x.value, reverse=True)
+                kicker_values = [x.value for x in kickers]
                 player_card_rankings.append(
-                    (0, max([card.value for card in all_cards]), max([card.value for card in all_cards])))
+                    (0, self.maxN(all_cards, n=5), max([card.value for card in all_cards]), kicker_values))
 
             highest_combination = max(player_card_rankings, key=lambda x: x[0])
-
+            print(highest_combination)
             rankings[player.name] = highest_combination
             # TODO: highest_combination[1] (ranked winning card values) isn't used.... bin?
 

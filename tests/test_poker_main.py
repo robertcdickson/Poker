@@ -14,7 +14,7 @@ def test_all_rankings():
                       Card("T", "clubs")]),
     ]
     analysis = BoardAnalysis(players, [])
-    assert analysis.players_analysis["Royal Flush"] == (9, [])
+    assert analysis.players_analysis["Royal Flush"] == (9, [14, 13, 12, 11, 10])
 
 
 def test_four_of_a_kind_over_high_card():
@@ -33,7 +33,7 @@ def test_four_of_a_kind_over_high_card():
     table_cards = [Card("2", "clubs"), Card("3", "spades"), Card("5", "diamonds"), Card("6", "hearts")]
     analysis = BoardAnalysis(players, table_cards)
 
-    assert analysis.winners_names[0] == "a"
+    assert analysis.winners[0] == "a"
 
 
 def test_three_of_a_kind():
@@ -48,4 +48,4 @@ def test_three_of_a_kind():
     table_cards = [Card("2", "clubs"), Card("2", "spades"), Card("2", "diamonds")]
     analysis = BoardAnalysis(players, table_cards)
 
-    assert analysis.winners_names[0] == "a"
+    assert analysis.winners[0] == "a"
