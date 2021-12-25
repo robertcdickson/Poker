@@ -493,12 +493,16 @@ class BoardAnalysis(object):
         straight_values = [combo for combo in itertools.combinations(card_values, 5)
                            if sorted(combo) == [2, 3, 4, 5, 14] or
                            max(combo) - min(combo) == 4 and len(set(combo)) == 5]
-        straight_cards = sorted(self.maxN([x for x in cards if x.value in straight_values[0]], n=5),
-                                key=lambda x: x.value,
-                                reverse=False)
 
         if straight_values:
-            return list(max(straight_values))[::-1], straight_cards, 4, max(max(straight_values))
+            straight_cards = sorted(self.maxN([x for x in cards if x.value in straight_values[0]], n=5),
+                                    key=lambda x: x.value,
+                                    reverse=False)
+            if all([x in straight_values[0] for x in [14, 2, 3, 4, 5]]):
+                straight_ranking = 5
+            else:
+                straight_ranking = max(max(straight_values))
+            return list(max(straight_values))[::-1], straight_cards, 4, straight_ranking
 
         return None, None, None, None
 
@@ -528,13 +532,18 @@ class BoardAnalysis(object):
             # check for any straight flush
             if straight_cards:
 
-                if all(x in straight_cards for x in [card.value for card in flush_cards]):
+                if all(x in straight_cards for x in flush_cards):
                     # check for specific case of royal flush
                     if all(x.value in [10, 11, 12, 13, 14] for x in flush_cards):
                         # it is impossible for 2 players to have a royal flush so just return 9
-                        return flush_cards, 9, None
 
-                    flush_ranking = max([card.value for card in flush_cards if card.value in straight_cards])
+                        return flush_cards, 9, 14
+
+                    elif all(x.value in [14, 2, 3, 4, 5] for x in flush_cards):
+                        flush_ranking = 5
+                    else:
+                        flush_ranking = max([card.value for card in flush_cards if card in straight_cards])
+
                     return flush_cards, 8, flush_ranking
 
             flush_ranking = max([card.value for card in flush_cards])
@@ -587,7 +596,7 @@ class BoardAnalysis(object):
             # check for flush or straight flush
             flush_cards, flush, flush_ranking = self.flush_check(all_cards, straight_cards)
             if flush:
-                player_card_rankings.append((flush, flush_ranking, flush_cards, sorted([x.value for x in flush_cards],
+                player_card_rankings.append((flush, flush_cards, flush_ranking, sorted([x.value for x in flush_cards],
                                                                                        reverse=True)))
 
             # check for all x-of-a-kind
@@ -598,19 +607,21 @@ class BoardAnalysis(object):
                 kickers = max([card for card in all_cards if card.value != max(four_of_a_kind)], key=lambda x: x.value)
                 four_of_a_kind_cards.append(kickers)
                 player_card_rankings.append(
-                    (7, max(four_of_a_kind), four_of_a_kind_cards, [kickers.value]))
+                    (7, four_of_a_kind_cards, max(four_of_a_kind), [kickers.value]))
 
             # full house
             elif pairs and three_of_a_kind:
-                full_house_cards = [card for card in all_cards if card.value == max(three_of_a_kind) or card.value == max(pairs)]
+                full_house_cards = [card for card in all_cards if
+                                    card.value == max(three_of_a_kind) or card.value == max(pairs)]
                 ranking = dict(Counter([x.value for x in full_house_cards]))
                 ranking = {v: k for k, v in ranking.items()}
                 ranking = [ranking[3], ranking[2]]
-                player_card_rankings.append((6, max(three_of_a_kind), full_house_cards, ranking))
+                player_card_rankings.append((6, full_house_cards, max(three_of_a_kind), ranking))
 
             elif three_of_a_kind:
                 three_of_a_kind_cards = [card for card in all_cards if card.value == max(three_of_a_kind)]
-                kickers = sorted(self.maxN([x for x in all_cards if x not in three_of_a_kind_cards], n=2), key=lambda x: x.value, reverse=True)
+                kickers = sorted(self.maxN([x for x in all_cards if x not in three_of_a_kind_cards], n=2),
+                                 key=lambda x: x.value, reverse=True)
                 kicker_values = [kicker.value for kicker in kickers]
                 player_card_rankings.append((3, three_of_a_kind_cards + kickers, max(three_of_a_kind), kicker_values))
 
@@ -619,16 +630,20 @@ class BoardAnalysis(object):
                     # two pair
                     highest_pairs = pairs[-2:]
                     highest_pair_ranking = max(pairs)
-                    kickers = sorted(self.maxN([x for x in all_cards if x.value not in highest_pairs], n=5), key=lambda x: x.value, reverse=True)
+                    kickers = sorted(self.maxN([x for x in all_cards if x.value not in highest_pairs], n=5),
+                                     key=lambda x: x.value, reverse=True)
                     kicker_values = [x.value for x in kickers]
                     player_card_rankings.append(
-                        (2, [card for card in all_cards if card.value in highest_pairs] + kickers, highest_pair_ranking, kicker_values))
+                        (2, [card for card in all_cards if card.value in highest_pairs] + kickers, highest_pair_ranking,
+                         kicker_values))
                 else:
                     highest_pair = pairs[0]
-                    kickers = sorted(self.maxN([x for x in all_cards if x.value != highest_pair], n=3), key=lambda x: x.value, reverse=True)
+                    kickers = sorted(self.maxN([x for x in all_cards if x.value != highest_pair], n=3),
+                                     key=lambda x: x.value, reverse=True)
                     kicker_values = [x.value for x in kickers]
                     player_card_rankings.append(
-                        (1, [card for card in all_cards if card.value == highest_pair] + kickers, highest_pair, kicker_values))
+                        (1, [card for card in all_cards if card.value == highest_pair] + kickers, highest_pair,
+                         kicker_values))
             else:
                 kickers = sorted(self.maxN(all_cards, n=5), key=lambda x: x.value, reverse=True)
                 kicker_values = [x.value for x in kickers]
@@ -642,10 +657,8 @@ class BoardAnalysis(object):
 
             print_rankings[player.name] = (highest_combination[0], highest_combination[3])
 
-        print(print_rankings)
         max_ranking = max(print_rankings.values())
         max_ranking_players = {k: v for k, v in print_rankings.items() if v == max_ranking}
-        print(f"max ranked players {max_ranking_players.values()}")
         max_kicker = max([x[1] for x in max_ranking_players.values()])
         max_ranking_players_with_kickers = {k: v for k, v in print_rankings.items() if v[1] == max_kicker}
 
