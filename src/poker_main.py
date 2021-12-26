@@ -1,8 +1,6 @@
 import random
-import random as rand
 import itertools
 from collections import Counter
-from termcolor import colored
 
 
 class Card(object):
@@ -10,8 +8,10 @@ class Card(object):
         """
 
         Args:
-            rank:
-            suit:
+            rank: str
+                Card ranking. options are 'hearts', 'clubs', 'spades', 'diamonds'
+            suit: str
+                Suit options are 'A', 'K', 'Q', 'J', 'T', '9', '8', '7', '6', '5', '4', '3', '2'
         """
         self.ranks_to_values = {"2": 2,
                                 "3": 3,
@@ -481,8 +481,8 @@ class BoardAnalysis(object):
         Checks for a straight in a set of cards
 
         Args:
-            cards:
-            self:
+            cards: list
+                List of Cards
 
         Returns:
 
@@ -510,8 +510,10 @@ class BoardAnalysis(object):
         """
         Checks for a flush in a given set of cards
         Args:
-            player:
-            straight_cards:
+            cards: list
+                List of Card objects
+            straight_cards: list
+                List of Cards determined to be a straight used to check for straight flushes
 
         Returns:
 
@@ -552,6 +554,17 @@ class BoardAnalysis(object):
             return None, None, None
 
     def maxN(self, elements, n):
+        """
+
+        Args:
+            elements:  iterable
+                list of elements from which the max n are to be found
+            n:  int
+                Number of maximum elements to choose
+
+        Returns:
+
+        """
         return sorted(elements, reverse=True, key=lambda x: x.value)[:n]
 
     def n_check(self, cards):
@@ -559,7 +572,8 @@ class BoardAnalysis(object):
         Checks for n number of cards with the same numerical value
 
         Args:
-            player:
+            cards: list
+                list of Card objects.
 
         Returns:
 
@@ -602,6 +616,7 @@ class BoardAnalysis(object):
             # check for all x-of-a-kind
             four_of_a_kind, three_of_a_kind, pairs = self.n_check(all_cards)
 
+            # check for for of a kind
             if four_of_a_kind:
                 four_of_a_kind_cards = [card for card in all_cards if card.value == max(four_of_a_kind)]
                 kickers = max([card for card in all_cards if card.value != max(four_of_a_kind)], key=lambda x: x.value)

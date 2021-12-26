@@ -49,3 +49,18 @@ def test_three_of_a_kind():
     analysis = BoardAnalysis(players, table_cards)
 
     assert analysis.winners[0] == "a"
+
+
+def test_two_pair():
+    # two pair
+    players = [
+
+        Player("a", chips=10, current_position="BTN", cards=[Card("A", "hearts"), Card("Q", "hearts")]),
+        Player("b", chips=1000, current_position="SB", cards=[Card("K", "hearts"), Card("Q", "diamonds")]),
+        Player("c", chips=1000, current_position="BB", cards=[Card("A", "hearts"), Card("K", "spades")]),
+
+    ]
+    table_cards = [Card("2", "clubs"), Card("2", "spades"), Card("A", "diamonds"), Card("K", "diamonds")]
+    analysis = BoardAnalysis(players, table_cards)
+
+    assert analysis.winners[0] == "c"
