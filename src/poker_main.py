@@ -119,6 +119,7 @@ class Poker(object):
         pre_flop_order = ["UTG", "UTG+1", "UTG+2", "LJ", "HJ", "CO", "BTN", "SB", "BB"]
         post_flop_order = ["SB", "BB", "UTG", "UTG+1", "UTG+2", "LJ", "HJ", "CO", "BTN"]
 
+        # order removing players if there are less than 9
         removal_order = [4, 3, 2, 5, 6, 7, 8]
 
         # rename positions based on the number of players
@@ -583,6 +584,10 @@ class BoardAnalysis(object):
         four_of_a_kind_cards = []
 
         for key, value in Counter([x.value for x in cards]).items():
+
+            # There should never be a five-of-a-kind in most games but if there is it is limited to four-of-a-kind
+            if value > 4:
+                raise ValueError("Cannot be more than four-of-a-kind")
             if value == 4:
                 four_of_a_kind_cards += [key]
             elif value == 3:
@@ -616,9 +621,11 @@ class BoardAnalysis(object):
             # check for all x-of-a-kind
             four_of_a_kind, three_of_a_kind, pairs = self.n_check(all_cards)
 
-            # check for for of a kind
+            # check for of a kind
             if four_of_a_kind:
                 four_of_a_kind_cards = [card for card in all_cards if card.value == max(four_of_a_kind)]
+                if len(four_of_a_kind_cards) > 4:
+                    raise ValueError("Cannot be more than four-of-a-kind")
                 kickers = max([card for card in all_cards if card.value != max(four_of_a_kind)], key=lambda x: x.value)
                 four_of_a_kind_cards.append(kickers)
                 player_card_rankings.append(
