@@ -3,6 +3,8 @@ import itertools
 from collections import Counter
 
 
+# TODO:
+
 class Card(object):
     def __init__(self, rank, suit):
         """
@@ -164,7 +166,8 @@ class Poker(object):
                 continue
 
     def betting_action(self, betting_round="pre-flop"):
-        # TODO: What happens when a player is all in?
+
+        # initialise all players as still to act
         for player in self.player_positions.values():
             player.to_act = True
 
@@ -178,8 +181,8 @@ class Poker(object):
         while any([player.to_act for player in self.player_positions.values()]):
 
             if betting_round == "pre-flop":
-                order = self.pre_flop_order
                 actions = {p: p.pre_flop_actions for p in self.player_positions.values()}
+                order = self.pre_flop_order
             elif betting_round == "post-flop":
                 order = self.post_flop_order
                 actions = {p: p.post_flop_actions for p in self.player_positions.values()}
@@ -193,7 +196,7 @@ class Poker(object):
                 raise ValueError("betting_round value not valid. only "
                                  "'pre_flop', 'post_flop', 'turn', 'river' are valid.")
 
-            for position in self.pre_flop_order:
+            for position in order:
 
                 # check if position still active (this could be removed by changing the for loop iterator
                 if position not in self.player_positions:
@@ -215,7 +218,7 @@ class Poker(object):
                 current_action = actions[player][i]
                 print(f"{player} {current_action}")
 
-                # not sure if this is useful at all
+                # TODO: not sure if this is useful at all
                 round_actions.append(current_action)
 
                 # if player is not active for whatever reason remove them from active_players
@@ -238,6 +241,7 @@ class Poker(object):
                     if current_raise_size >= player.chips + player.called_for:
                         print(f"{player.name} is all in")
                         player.all_in = True
+                        player.active = False
 
                     if player.called_for:
                         player.chips -= (current_raise_size - player.called_for)
@@ -249,7 +253,7 @@ class Poker(object):
                     player.called_for = current_raise_size
                     player.to_act = False
 
-                # betting increase pot size
+                # betting increases pot size
                 if "raise to" in current_action:
                     raise_size = float(current_action.split()[2])
                     if raise_size > player.chips + player.called_for:
@@ -257,6 +261,7 @@ class Poker(object):
                     elif raise_size == player.chips + player.called_for:
                         player.all_in = True
                         print(f"{player.name} is all in!")
+                        player.active = False
 
                     if player.called_for:
                         player.chips -= (raise_size - player.called_for)
@@ -267,9 +272,11 @@ class Poker(object):
 
                     current_raise_size = raise_size
                     player.called_for = current_raise_size
+
                     # once a bet is made all other players in the hand now have to act
-                    for active_player in self.player_positions.values():
-                        active_player.to_act = True
+                    if not player.all_in:
+                        for active_player in self.player_positions.values():
+                            active_player.to_act = True
 
                     player.to_act = False
 
