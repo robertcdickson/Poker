@@ -178,8 +178,7 @@ class Poker(object):
         current_raise_size = 0
 
         # while there is still a player to act
-        while any([player.to_act for player in self.player_positions.values()]):
-
+        while any([player.to_act for player in self.player_positions.values() if player.active]):
             if betting_round == "pre-flop":
                 actions = {p: p.pre_flop_actions for p in self.player_positions.values()}
                 order = self.pre_flop_order
