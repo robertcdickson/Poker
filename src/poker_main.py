@@ -321,6 +321,7 @@ class Poker(object):
 
     def showdown(self):
         showdown_card_analysis = BoardAnalysis(self.active_players, self.table_cards)
+        print(showdown_card_analysis.winners)
 
     def summary(self):
         pass
@@ -328,11 +329,13 @@ class Poker(object):
     def play_game(self):
 
         # deal cards
-        self.deal()
+        if not all([player.cards for player in self.players]):
+            self.deal()
 
         # post_blinds
         self.post_blinds()
 
+        all_in = False  # bool determines if betting rounds should be skipped due to players all in
         for betting_round in self.betting_rounds:
 
             self.active_players = [player for player in self.players if player.active]
@@ -345,18 +348,27 @@ class Poker(object):
             print("=" * 40)
             print(str(betting_round).center(40))
             print("=" * 40)
-            self.betting_action(betting_round=betting_round)
+            if not all_in:
+                self.betting_action(betting_round=betting_round)
+
             self.active_players = [player for player in self.players if player.active]
-            if len(self.active_players) == 1:
+
+            if len(self.active_players) - len([player.all_in for player in self.active_players if player.all_in]) == 1 and not all_in:
+                print("No more betting as a player(s) are all in")
+                print("=" * 40)
+                all_in = True
+                continue
+
+            if len(self.active_players) == 1 and not all_in:
                 winner = self.active_players[0]
                 winner.chips += self.pot
                 print(f"{winner.name} wins {self.pot} BB and has {winner.chips} BB")
                 self.pot = 0
                 break
 
-            if len(self.active_players) - len([player.all_in for player in self.active_players if player.all_in]) == 1:
-                print("No more betting as a player(s) are all in")
-                break
+        # determine winner if not already
+        analysis = BoardAnalysis(self.players, self.table_cards)
+        print(f"Winner is {analysis.winners}")
 
     def __repr__(self):
         return repr(f'Poker Game {self.players}')
