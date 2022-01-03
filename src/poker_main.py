@@ -52,13 +52,19 @@ class Card(object):
     def __gt__(self, other):
         return self.value > other.value
 
+    def __eq__(self, other):
+        return (self.value == other.value) and (self.suit == other.suit)
+
+
+    def __hash__(self):
+        return hash(str(self))
 
 class Poker(object):
     """
     A class that plays a single game of poker
     """
 
-    def __init__(self, players: list):
+    def __init__(self, players: list, table_cards=[]):
         self.suits = ["clubs", "spades", "diamonds", "hearts"]
         self.values = {"2": 2,
                        "3": 3,
@@ -96,10 +102,16 @@ class Poker(object):
         self.active_players = [player.active for player in self.players if player.active is True]
         self.betting_rounds = ["pre-flop", "post-flop", "turn", "river"]
 
-        self.flop_cards = []
-        self.turn_card = []
-        self.river_card = []
-        self.table_cards = []
+        if not table_cards:
+            self.table_cards = []
+            self.flop_cards = []
+            self.turn_card = []
+            self.river_card = []
+        else:
+            self.table_cards = table_cards
+            self.flop_cards = table_cards[0:3]
+            self.turn_card = [3]
+            self.river_card = [4]
 
         self.actions = {"pre-flop": [],
                         "flop": [],
@@ -138,7 +150,24 @@ class Poker(object):
 
     def deal(self):
         print("=" * 40)
-        for player in self.players:
+        if self.table_cards:
+            self.remaining_deck = [card for card in self.remaining_deck if card not in self.table_cards]
+            print(len(self.remaining_deck))
+        # players split into those already dealt and not dealt so cards are not dealt twice
+        pre_dealt_players = [player for player in self.players if player.cards != []]
+        other_players = [player for player in self.players if player.cards == []]
+
+        for player in pre_dealt_players:
+            # if player cards are already defined then remove from deck and don't deal them cards
+            self.remaining_deck = [card for card in self.remaining_deck if card not in player.cards]
+            print(len(self.remaining_deck))
+            self.player_hands[player] = player.cards
+            print_cards = ""
+            for card in self.player_hands[player]:
+                print_cards += str(card)
+            print(f"{player.name}: {print_cards}")
+
+        for player in other_players:
             self.player_hands[player] = random.sample(self.remaining_deck, 2)
             self.remaining_deck = [card for card in self.remaining_deck if card not in self.player_hands[player]]
             player.cards = self.player_hands[player]
@@ -146,8 +175,8 @@ class Poker(object):
             for card in self.player_hands[player]:
                 print_cards += str(card)
             print(f"{player.name}: {print_cards}")
-
             self.remaining_deck = [card for card in self.remaining_deck if card not in self.player_hands[player]]
+
         print("=" * 40)
 
     def post_blinds(self):
@@ -288,36 +317,43 @@ class Poker(object):
         print("=" * 40)
 
     def flop(self):
-        self.flop_cards = random.sample(self.remaining_deck, 3)
+        if not self.flop_cards:
+            self.flop_cards = random.sample(self.remaining_deck, 3)
+            self.table_cards += self.flop_cards
+            for card in self.flop_cards:
+                self.remaining_deck.remove(card)
+
         print_flop_cards = ""
         for card in self.flop_cards:
             print_flop_cards += str(card)
         print(f"Flop cards: {print_flop_cards}")
-        self.table_cards += self.flop_cards
-        for card in self.flop_cards:
-            self.remaining_deck.remove(card)
 
     def turn(self):
-        self.turn_card = random.sample(self.remaining_deck, 1)[0]
+        if not self.turn_card:
+            self.turn_card = random.sample(self.remaining_deck, 1)[0]
+            self.table_cards.append(self.turn_card)
+            self.remaining_deck.remove(self.turn_card)
 
         print(f"Turn card: {self.turn_card}")
-        self.table_cards.append(self.turn_card)
         print_table_cards = ""
         for card in self.table_cards:
             print_table_cards += str(card)
         print(f"Table Cards: {print_table_cards}")
 
-        self.remaining_deck.remove(self.turn_card)
+
 
     def river(self):
-        self.river_card = random.sample(self.remaining_deck, 1)[0]
+        if not self.river_card:
+            self.river_card = random.sample(self.remaining_deck, 1)[0]
+            self.table_cards.append(self.river_card)
+            self.remaining_deck.remove(self.river_card)
+
         print(f"River card: {self.river_card}")
-        self.table_cards.append(self.river_card)
         print_table_cards = ""
         for card in self.table_cards:
             print_table_cards += str(card)
         print(f"Table Cards: {print_table_cards}")
-        self.remaining_deck.remove(self.river_card)
+
 
     def showdown(self):
         showdown_card_analysis = BoardAnalysis(self.active_players, self.table_cards)
@@ -353,7 +389,8 @@ class Poker(object):
 
             self.active_players = [player for player in self.players if player.active]
 
-            if len(self.active_players) - len([player.all_in for player in self.active_players if player.all_in]) == 1 and not all_in:
+            if len(self.active_players) - len([player.all_in for player in self.active_players if player.all_in]) == 1 \
+                    and not all_in:
                 print("No more betting as a player(s) are all in")
                 print("=" * 40)
                 all_in = True
@@ -490,8 +527,10 @@ class BoardAnalysis(object):
 
         self.deck = [Card(value, suit) for suit in self.suits for value in self.values]
         self.all_player_cards = [player.cards for player in self.players]
-        self.in_play_cards = self.all_player_cards + self.table_cards
-        self.remaining_deck = [card for card in self.deck if card not in self.in_play_cards]
+
+        # this should be tidied up to have the in_play_cards as a list rather than list of lists
+        self.in_play_cards = self.all_player_cards + [self.table_cards]
+        self.remaining_deck = [card for card in self.deck for x in self.in_play_cards if card not in x]
         self.players_analysis = self.analyse_cards()
         self.winners = self.players_analysis["winners"]
 
@@ -669,8 +708,9 @@ class BoardAnalysis(object):
                 if len(pairs) > 1:
                     # two pair
                     highest_pairs = pairs[-2:]
+                    print(highest_pairs)
                     highest_pair_ranking = max(pairs)
-                    kickers = sorted(self.maxN([x for x in all_cards if x.value not in highest_pairs], n=5),
+                    kickers = sorted(self.maxN([x for x in all_cards if x.value not in highest_pairs], n=1),
                                      key=lambda x: x.value, reverse=True)
                     kicker_values = [x.value for x in kickers]
                     player_card_rankings.append(
@@ -695,12 +735,19 @@ class BoardAnalysis(object):
             rankings[player.name] = highest_combination
             # TODO: highest_combination[1] (ranked winning card values) isn't used.... bin?
 
-            print_rankings[player.name] = (highest_combination[0], highest_combination[3])
+            print_rankings[player.name] = (highest_combination[0], highest_combination[2], highest_combination[3])
 
-        max_ranking = max(print_rankings.values())
-        max_ranking_players = {k: v for k, v in print_rankings.items() if v == max_ranking}
-        max_kicker = max([x[1] for x in max_ranking_players.values()])
-        max_ranking_players_with_kickers = {k: v for k, v in print_rankings.items() if v[1] == max_kicker}
+        # defines the maximum combination
+        max_combination = max(print_rankings.values())
+        max_combination_players = {k: v for k, v in print_rankings.items() if v == max_combination}
+
+        # defines the maximum ranking of the combination
+        max_ranking = max([x[1] for x in max_combination_players.values()])
+        max_ranking_players = {k: v for k, v in max_combination_players.items() if v[1] == max_ranking}
+
+        # defines the maximum kickers
+        max_kicker = max([x[2] for x in max_ranking_players.values()])
+        max_ranking_players_with_kickers = {k: v for k, v in max_ranking_players.items() if v[2] == max_kicker}
 
         winners = max_ranking_players_with_kickers.keys()
         print_rankings["winners"] = list(winners)
