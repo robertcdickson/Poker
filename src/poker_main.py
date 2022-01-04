@@ -55,9 +55,9 @@ class Card(object):
     def __eq__(self, other):
         return (self.value == other.value) and (self.suit == other.suit)
 
-
     def __hash__(self):
         return hash(str(self))
+
 
 class Poker(object):
     """
@@ -110,8 +110,8 @@ class Poker(object):
         else:
             self.table_cards = table_cards
             self.flop_cards = table_cards[0:3]
-            self.turn_card = [3]
-            self.river_card = [4]
+            self.turn_card = table_cards[3]
+            self.river_card = table_cards[4]
 
         self.actions = {"pre-flop": [],
                         "flop": [],
@@ -152,7 +152,6 @@ class Poker(object):
         print("=" * 40)
         if self.table_cards:
             self.remaining_deck = [card for card in self.remaining_deck if card not in self.table_cards]
-            print(len(self.remaining_deck))
         # players split into those already dealt and not dealt so cards are not dealt twice
         pre_dealt_players = [player for player in self.players if player.cards != []]
         other_players = [player for player in self.players if player.cards == []]
@@ -160,7 +159,6 @@ class Poker(object):
         for player in pre_dealt_players:
             # if player cards are already defined then remove from deck and don't deal them cards
             self.remaining_deck = [card for card in self.remaining_deck if card not in player.cards]
-            print(len(self.remaining_deck))
             self.player_hands[player] = player.cards
             print_cards = ""
             for card in self.player_hands[player]:
@@ -340,8 +338,6 @@ class Poker(object):
             print_table_cards += str(card)
         print(f"Table Cards: {print_table_cards}")
 
-
-
     def river(self):
         if not self.river_card:
             self.river_card = random.sample(self.remaining_deck, 1)[0]
@@ -353,7 +349,6 @@ class Poker(object):
         for card in self.table_cards:
             print_table_cards += str(card)
         print(f"Table Cards: {print_table_cards}")
-
 
     def showdown(self):
         showdown_card_analysis = BoardAnalysis(self.active_players, self.table_cards)
@@ -553,7 +548,7 @@ class BoardAnalysis(object):
                            max(combo) - min(combo) == 4 and len(set(combo)) == 5]
 
         if straight_values:
-            straight_cards = sorted(self.maxN([x for x in cards if x.value in straight_values[0]], n=5),
+            straight_cards = sorted([x for x in cards if x.value in straight_values[0]],
                                     key=lambda x: x.value,
                                     reverse=False)
             if all([x in straight_values[0] for x in [14, 2, 3, 4, 5]]):
@@ -667,7 +662,13 @@ class BoardAnalysis(object):
             # check for straight
             straight_values, straight_cards, hand_ranking, straight_ranking = self.straight_check(all_cards)
             if straight_cards:
-                player_card_rankings.append((4, straight_cards, straight_ranking, straight_values))
+                final_straight_cards = []
+                for card in straight_cards:
+                    if card.value in straight_values:
+                        final_straight_cards.append(card)
+                        straight_values.remove(card.value)
+
+                player_card_rankings.append((4, final_straight_cards, straight_ranking, []))
 
             # check for flush or straight flush
             flush_cards, flush, flush_ranking = self.flush_check(all_cards, straight_cards)
@@ -708,7 +709,6 @@ class BoardAnalysis(object):
                 if len(pairs) > 1:
                     # two pair
                     highest_pairs = pairs[-2:]
-                    print(highest_pairs)
                     highest_pair_ranking = max(pairs)
                     kickers = sorted(self.maxN([x for x in all_cards if x.value not in highest_pairs], n=1),
                                      key=lambda x: x.value, reverse=True)
