@@ -64,7 +64,9 @@ class Poker(object):
     A class that plays a single game of poker
     """
 
-    def __init__(self, players: list, table_cards=[]):
+    def __init__(self, players: list, table_cards=None):
+        if table_cards is None:
+            table_cards = []
         self.suits = ["clubs", "spades", "diamonds", "hearts"]
         self.values = {"2": 2,
                        "3": 3,
@@ -152,6 +154,7 @@ class Poker(object):
         print("=" * 40)
         if self.table_cards:
             self.remaining_deck = [card for card in self.remaining_deck if card not in self.table_cards]
+
         # players split into those already dealt and not dealt so cards are not dealt twice
         pre_dealt_players = [player for player in self.players if player.cards != []]
         other_players = [player for player in self.players if player.cards == []]
@@ -178,6 +181,10 @@ class Poker(object):
         print("=" * 40)
 
     def post_blinds(self):
+        """
+        Takes a small blind from player in the SB position and a big blind from a player in the BB position
+
+        """
         for player in self.players:
             if player.current_position == "SB":
                 player.chips -= 0.5
@@ -193,6 +200,12 @@ class Poker(object):
                 continue
 
     def betting_action(self, betting_round="pre-flop"):
+        """
+        Args:
+            betting_round: str
+                Defines the current betting round. Options are 'pre-flop', 'post-flop', 'turn' and 'river'
+
+        """
 
         # initialise all players as still to act
         for player in self.player_positions.values():
@@ -204,7 +217,7 @@ class Poker(object):
         round_actions = []
         current_raise_size = 0
 
-        # while there is still a player to act
+        # players are no longer active after they fold
         while any([player.to_act for player in self.player_positions.values() if player.active]):
             if betting_round == "pre-flop":
                 actions = {p: p.pre_flop_actions for p in self.player_positions.values()}
@@ -262,7 +275,7 @@ class Poker(object):
                 if "check" in current_action:
                     player.to_act = False
 
-                # if a player calls their balance loses a big blind and they remain active until all players are done
+                # if a player calls their balance loses a big blind, and they remain active until all players are done
                 if "call" in current_action:
                     if current_raise_size >= player.chips + player.called_for:
                         print(f"{player.name} is all in")
@@ -279,7 +292,7 @@ class Poker(object):
                     player.called_for = current_raise_size
                     player.to_act = False
 
-                # betting increases pot size
+                # betting increases pot size and decreases players chip pile
                 if "raise to" in current_action:
                     raise_size = float(current_action.split()[2])
                     if raise_size > player.chips + player.called_for:
@@ -299,7 +312,7 @@ class Poker(object):
                     current_raise_size = raise_size
                     player.called_for = current_raise_size
 
-                    # once a bet is made all other players in the hand now have to act
+                    # once a bet is made all active players in the hand now have to act
                     if not player.all_in:
                         for active_player in self.player_positions.values():
                             active_player.to_act = True
@@ -352,7 +365,11 @@ class Poker(object):
 
     def showdown(self):
         showdown_card_analysis = BoardAnalysis(self.active_players, self.table_cards)
+        for player in showdown_card_analysis.winners:
+            player.chips += self.pot / len(showdown_card_analysis.winners)
+
         print(showdown_card_analysis.winners)
+        print(f"Winners are {showdown_card_analysis.winners} and win {self.pot / len(showdown_card_analysis)}")
 
     def summary(self):
         pass
@@ -398,9 +415,7 @@ class Poker(object):
                 self.pot = 0
                 break
 
-        # determine winner if not already
-        analysis = BoardAnalysis(self.players, self.table_cards)
-        print(f"Winner is {analysis.winners}")
+        self.showdown()
 
     def __repr__(self):
         return repr(f'Poker Game {self.players}')
@@ -529,13 +544,14 @@ class BoardAnalysis(object):
         self.players_analysis = self.analyse_cards()
         self.winners = self.players_analysis["winners"]
 
-    def straight_check(self, cards):
+    @staticmethod
+    def straight_check(cards):
         """
         Checks for a straight in a set of cards
 
         Args:
             cards: list
-                List of Cards
+                cards to check for a straight combination in
 
         Returns:
 
@@ -559,14 +575,15 @@ class BoardAnalysis(object):
 
         return None, None, None, None
 
-    def flush_check(self, cards, straight_cards=None):
+    @staticmethod
+    def flush_check(cards, straight_cards=None):
         """
         Checks for a flush in a given set of cards
         Args:
             cards: list
-                List of Card objects
+                Cards for flush check
             straight_cards: list
-                List of Cards determined to be a straight used to check for straight flushes
+                Cards determined to form a straight used to check for straight flushes
 
         Returns:
 
@@ -606,7 +623,8 @@ class BoardAnalysis(object):
         else:
             return None, None, None
 
-    def maxN(self, elements, n):
+    @staticmethod
+    def maxN(elements, n):
         """
 
         Args:
@@ -620,13 +638,14 @@ class BoardAnalysis(object):
         """
         return sorted(elements, reverse=True, key=lambda x: x.value)[:n]
 
-    def n_check(self, cards):
+    @staticmethod
+    def n_check(cards):
         """
         Checks for n number of cards with the same numerical value
 
         Args:
             cards: list
-                list of Card objects.
+                Cards for checking pairs, three/four of a kind
 
         Returns:
 
@@ -755,4 +774,16 @@ class BoardAnalysis(object):
         return print_rankings
 
     def __str__(self):
-        return str(f"{self.analysis}")
+        return str(f"{self.players_analysis}")
+
+
+class InteractivePoker(Poker):
+    """
+    An extension to the Poker class that allows for interactive play;
+    """
+    def __init__(self, num_players, num_bots, players: list):
+        super().__init__(players)
+        self.num_players = num_players
+        self.num_bots = num_bots
+
+    pass
