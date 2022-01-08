@@ -3,7 +3,6 @@ import itertools
 from collections import Counter
 
 
-# TODO:
 
 class Card(object):
     def __init__(self, rank, suit):
@@ -28,6 +27,7 @@ class Card(object):
                                 "Q": 12,
                                 "K": 13,
                                 "A": 14}
+        self.values_to_ranks = {value: key for key, value in self.ranks_to_values.items()}
 
         self.rank = rank
         self.value = self.ranks_to_values[rank]
@@ -65,8 +65,7 @@ class Poker(object):
     """
 
     def __init__(self, players: list, table_cards=None):
-        if table_cards is None:
-            table_cards = []
+
         self.suits = ["clubs", "spades", "diamonds", "hearts"]
         self.values = {"2": 2,
                        "3": 3,
@@ -132,6 +131,7 @@ class Poker(object):
 
         self.positions_keys = dict((v, k) for k, v in self.positions.items())
 
+        # pre and post flop betting orders are different due to big blinds
         pre_flop_order = ["UTG", "UTG+1", "UTG+2", "LJ", "HJ", "CO", "BTN", "SB", "BB"]
         post_flop_order = ["SB", "BB", "UTG", "UTG+1", "UTG+2", "LJ", "HJ", "CO", "BTN"]
 
@@ -152,6 +152,7 @@ class Poker(object):
 
     def deal(self):
         print("=" * 40)
+
         if self.table_cards:
             self.remaining_deck = [card for card in self.remaining_deck if card not in self.table_cards]
 
@@ -160,6 +161,7 @@ class Poker(object):
         other_players = [player for player in self.players if player.cards == []]
 
         for player in pre_dealt_players:
+
             # if player cards are already defined then remove from deck and don't deal them cards
             self.remaining_deck = [card for card in self.remaining_deck if card not in player.cards]
             self.player_hands[player] = player.cards
@@ -365,11 +367,17 @@ class Poker(object):
 
     def showdown(self):
         showdown_card_analysis = BoardAnalysis(self.active_players, self.table_cards)
-        for player in showdown_card_analysis.winners:
+        winners = showdown_card_analysis.winners
+        for player in winners:
             player.chips += self.pot / len(showdown_card_analysis.winners)
+        if len(winners) == 1:
+            print(f"Winner is {winners[0]} and wins {self.pot / len(showdown_card_analysis.winners)} with {showdown_card_analysis.players_analysis[winners[0].name]}")
+        else:
+            winners_str = ""
+            for winner in winners:
+                winners_str += winner.name + ", "
 
-        print(showdown_card_analysis.winners)
-        print(f"Winners are {showdown_card_analysis.winners} and win {self.pot / len(showdown_card_analysis)}")
+            print(f"Winners are {winners_str} and wins {self.pot / len(winners)}")
 
     def summary(self):
         pass
@@ -769,7 +777,7 @@ class BoardAnalysis(object):
         max_ranking_players_with_kickers = {k: v for k, v in max_ranking_players.items() if v[2] == max_kicker}
 
         winners = max_ranking_players_with_kickers.keys()
-        print_rankings["winners"] = list(winners)
+        print_rankings["winners"] = list([x for x in self.players if x.name in winners])
 
         return print_rankings
 
