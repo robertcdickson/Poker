@@ -110,7 +110,7 @@ class PokerGame(object):
         table_cards_dict = {}
 
         # used cards are cards that can no longer come out of the deck
-        used_cards = list(itertools.chain(*players.values()))
+        used_cards = list(itertools.chain(*players.hand_values()))
 
         # simulates the game n times
         for i in range(n):

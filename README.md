@@ -18,7 +18,7 @@ From this collection, each game can analysed. Games are stored in a dictionary c
 follows.
 
 ```python
-for game in poker_session.games_data.values():
+for game in poker_session.games_data.hand_values():
     print(game)
 ```
 
@@ -60,7 +60,7 @@ Each PokerGame has attributes attached to it with the whole game saved as a pand
 One attribute of a PokerGame is a list of winners. This allows for easy filtering of games in a collection.
 
 ```python
-for game in poker_session.games_data.values():
+for game in poker_session.games_data.hand_values():
     if "Bobson_Dugnutt" in game.winners:
         print(game)
 ```
