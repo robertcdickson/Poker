@@ -1,7 +1,7 @@
 import random
 import itertools
 from collections import Counter
-
+from copy import deepcopy
 
 class Card(object):
     def __init__(self, string):
@@ -94,7 +94,7 @@ class Poker(object):
 
         self.pot = 0.0
         self.deck = [Card(value + suit) for suit in self.suits for value in self.hand_values]
-        self.remaining_deck = self.deck.copy()
+        self.remaining_deck = deepcopy(self.deck)
 
         self.players = players
         self.player_hands = {}
@@ -103,16 +103,26 @@ class Poker(object):
         self.active_players = [player.active for player in self.players if player.active is True]
         self.betting_rounds = ["pre-flop", "post-flop", "turn", "river"]
 
-        if not table_cards:
+        if table_cards:
+            # TODO: this is messy and needs tidied
+            self.table_cards = table_cards
+            if len(table_cards) < 3:
+                self.flop_cards = table_cards
+            if len(table_cards) >= 3:
+                self.flop_cards = self.table_cards[0:3]
+            if len(table_cards) >= 4:
+                self.turn_card = table_cards[3]
+            else:
+                self.table_cards = []
+            if len(table_cards) >= 5:
+                self.river_card = table_cards[4]
+            else:
+                self.river_card = []
+        else:
             self.table_cards = []
             self.flop_cards = []
             self.turn_card = []
             self.river_card = []
-        else:
-            self.table_cards = table_cards
-            self.flop_cards = table_cards[0:3]
-            self.turn_card = table_cards[3]
-            self.river_card = table_cards[4]
 
         self.actions = {"pre-flop": [],
                         "flop": [],
@@ -540,8 +550,12 @@ class Player(object):
 
 
 class BoardAnalysis(object):
-    def __init__(self, players: list, table_cards: list):
+    def __init__(self, players=None, table_cards=None):
 
+        if table_cards is None:
+            table_cards = []
+        if players is None:
+            players = []
         self.players = players
         self.table_cards = table_cards
         self.suits = ["c", "s", "d", "h"]
@@ -577,7 +591,8 @@ class BoardAnalysis(object):
 
         # this should be tidied up to have the in_play_cards as a list rather than list of lists
         self.in_play_cards = self.all_player_cards + [self.table_cards]
-        self.remaining_deck = [card for card in self.deck for x in self.in_play_cards if card not in x]
+        self.in_play_cards = set([item for sublist in self.in_play_cards for item in sublist])
+        self.remaining_deck = [card for card in self.deck if card not in self.in_play_cards]
         self.players_analysis = self.analyse_cards()
         self.winners = self.players_analysis["winners"]
 
@@ -787,11 +802,11 @@ class BoardAnalysis(object):
                     (0, self.maxN(all_cards, n=5), max([card.value for card in all_cards]), kicker_values))
 
             highest_combination = max(player_card_rankings, key=lambda x: x[0])
-            print(highest_combination)
             rankings[player.name] = highest_combination
 
             print_rankings[player.name] = (highest_combination[0], highest_combination[2], highest_combination[3])
             hand_ranking_string = f"{self.rankings[highest_combination[0]]}"
+            print(hand_ranking_string)
 
         # defines the maximum combination
         max_combination = max(print_rankings.values())
