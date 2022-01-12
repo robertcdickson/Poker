@@ -161,6 +161,8 @@ class Poker(object):
         self.post_flop_order = [x for x in post_flop_order if x in self.positions.values()]
 
         self.player_positions = dict((player.current_position, player) for player in self.players)
+        self.showdown_card_analysis = None
+        self.winners = None
 
     def deal(self):
         """
@@ -405,22 +407,26 @@ class Poker(object):
         Returns:
 
         """
-        showdown_card_analysis = BoardAnalysis(self.active_players, self.table_cards)
-        winners = showdown_card_analysis.winners
-        for player in winners:
-            player.chips += self.pot / len(showdown_card_analysis.winners)
-        if len(winners) == 1:
-            winner = showdown_card_analysis.data_analysis[winners[0].name]
-            print(showdown_card_analysis.print_analysis[winners[0].name])
-        else:
-            winners_str = ""
-            for winner in winners:
-                winners_str += winner.name + ", "
-
-            print(f"Winners are {winners_str} and wins {self.pot / len(winners)}")
+        self.showdown_card_analysis = BoardAnalysis(self.players, self.table_cards)
+        self.winners = self.showdown_card_analysis.winners
 
     def summary(self):
-        pass
+        print("-" * 40)
+        for player in self.players:
+            string_cards = "".join([str(x) for x in player.cards])
+            print(f"{player.name}({string_cards}): {player.print_ranking}")
+            print("-"*40)
+
+        for player in self.winners:
+            player.chips += self.pot / len(self.showdown_card_analysis.winners)
+        if len(self.winners) == 1:
+            print(
+                f"Winner is {self.winners[0].name} with {self.showdown_card_analysis.print_analysis[self.winners[0].name]} "
+                f"and collects {self.pot}")
+        else:
+            winners_str = " ".join(x.name for x in self.winners[:-1]) + " and " + self.winners[-1].name
+
+            print(f"Winners are {winners_str} and win {self.pot / len(self.winners)} BB each with {self.showdown_card_analysis.print_winning_combination}")
 
     def play_game(self):
 
@@ -464,6 +470,7 @@ class Poker(object):
                 break
 
         self.showdown()
+        self.summary()
 
     def __repr__(self):
         return repr(f'Poker Game {self.players}')
@@ -539,6 +546,7 @@ class Player(object):
         self.turn_actions = turn
         self.river_actions = river
         self.called_for = 0
+        self.print_ranking = None
 
         # self.card_values = [card[0] for card in self.in_play_cards]
         # self.card_values_counter = Counter(self.card_values)
@@ -576,16 +584,16 @@ class BoardAnalysis(object):
 
         self.values_to_ranks = {value: key for key, value in self.values.items()}
 
-        self.rankings = {9: "A Royal Flush",
-                         8: "A Straight Flush",
-                         7: "Four of a Kind",
-                         6: "A Full House",
-                         5: "A Flush",
-                         4: "A Straight",
-                         3: "Three of a Kind",
-                         2: "Two Pair",
-                         1: "A Pair",
-                         0: "High Card"}
+        self.rankings = {9: "a royal flush",
+                         8: "a straight flush",
+                         7: "four of a kind",
+                         6: "a full house",
+                         5: "a flush",
+                         4: "a straight",
+                         3: "three of a kind",
+                         2: "two Pair",
+                         1: "a pair",
+                         0: "high card"}
 
         self.deck = [Card(value + suit) for suit in self.suits for value in self.values]
         self.all_player_cards = [player.cards for player in self.players]
@@ -596,6 +604,7 @@ class BoardAnalysis(object):
         self.remaining_deck = [card for card in self.deck if card not in self.in_play_cards]
         self.data_analysis, self.print_analysis = self.analyse_cards()
         self.winners = self.data_analysis["winners"]
+        self.print_winning_combination = self.winners[0].print_ranking
 
     @staticmethod
     def straight_check(cards):
@@ -809,6 +818,7 @@ class BoardAnalysis(object):
             data_rankings[player.name] = (
                 highest_combination[0], highest_combination[1], highest_combination[2], highest_combination[3])
             hand_ranking_string = self.ranking_string(highest_combination[0], highest_combination[1])
+            player.print_ranking = hand_ranking_string
             print_rankings[player.name] = hand_ranking_string
 
         # defines the maximum combination
@@ -829,7 +839,8 @@ class BoardAnalysis(object):
 
         return data_rankings, print_rankings
 
-    def ranking_string(self, rank, cards):
+    @staticmethod
+    def ranking_string(rank, cards):
         """
         A function that parses the raw ranking data
 
@@ -839,22 +850,22 @@ class BoardAnalysis(object):
         """
         string_cards = "".join([str(x) for x in cards])
         ranking_strings = {
-            0: f"High Card {string_cards[0]} with kickers {string_cards[1:]}",
-            1: f"A Pair: {string_cards[0:4]} with kickers{string_cards[4:]}",
-            2: f"Two Pair {string_cards[0:8]} with {string_cards[8:]} kicker",
-            3: f"Three of a kind {string_cards[0:6]} with {string_cards[6:]} kickers",
-            4: f"A Straight {string_cards}",
-            5: f"A Flush {string_cards}",
-            6: f"A Full House {string_cards}",
-            7: f"Four of a Kind {string_cards[0:8]}",
-            8: f"A Straight Flush {string_cards}",
-            9: f"A Royal Flush {string_cards}"
+            0: f"high card: {string_cards[:2]} with kickers {string_cards[2:]}",
+            1: f"a pair: {string_cards[0:4]} with kickers {string_cards[4:]}",
+            2: f"two pair: {string_cards[0:8]} with {string_cards[8:]} kicker",
+            3: f"three of a kind: {string_cards[0:6]} with {string_cards[6:]} kickers",
+            4: f"a straight: {string_cards}",
+            5: f"a flush: {string_cards}",
+            6: f"a full house: {string_cards}",
+            7: f"four of a kind: {string_cards[0:8]}",
+            8: f"a straight flush: {string_cards}",
+            9: f"a royal flush: {string_cards}"
         }
 
         return ranking_strings[rank]
 
     def __str__(self):
-        return str(f"{self.players_analysis}")
+        return str(f"{self.print_analysis}")
 
 
 class InteractivePoker(Poker):
