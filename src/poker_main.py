@@ -3,6 +3,7 @@ import itertools
 from collections import Counter
 from copy import deepcopy
 
+
 class Card(object):
     def __init__(self, string):
         """
@@ -80,6 +81,7 @@ class Poker(object):
                             "Q": 12,
                             "K": 13,
                             "A": 14}
+        self.hand_rankings = {value: key for key, value in self.hand_values.items()}
 
         self.rankings = {9: "royal_flush",
                          8: "straight_flush",
@@ -408,9 +410,8 @@ class Poker(object):
         for player in winners:
             player.chips += self.pot / len(showdown_card_analysis.winners)
         if len(winners) == 1:
-            print(
-                f"Winner is {winners[0]} and wins {self.pot / len(showdown_card_analysis.winners)} with "
-                f"{showdown_card_analysis.players_analysis[winners[0].name]}")
+            winner = showdown_card_analysis.data_analysis[winners[0].name]
+            print(showdown_card_analysis.print_analysis[winners[0].name])
         else:
             winners_str = ""
             for winner in winners:
@@ -575,16 +576,16 @@ class BoardAnalysis(object):
 
         self.values_to_ranks = {value: key for key, value in self.values.items()}
 
-        self.rankings = {9: "royal_flush",
-                         8: "straight_flush",
-                         7: "four_of_a_kind",
-                         6: "full_house",
-                         5: "flush",
-                         4: "straight",
-                         3: "three_of_a_kind",
-                         2: "two_pair",
-                         1: "pair",
-                         0: "high_card"}
+        self.rankings = {9: "A Royal Flush",
+                         8: "A Straight Flush",
+                         7: "Four of a Kind",
+                         6: "A Full House",
+                         5: "A Flush",
+                         4: "A Straight",
+                         3: "Three of a Kind",
+                         2: "Two Pair",
+                         1: "A Pair",
+                         0: "High Card"}
 
         self.deck = [Card(value + suit) for suit in self.suits for value in self.values]
         self.all_player_cards = [player.cards for player in self.players]
@@ -593,8 +594,8 @@ class BoardAnalysis(object):
         self.in_play_cards = self.all_player_cards + [self.table_cards]
         self.in_play_cards = set([item for sublist in self.in_play_cards for item in sublist])
         self.remaining_deck = [card for card in self.deck if card not in self.in_play_cards]
-        self.players_analysis = self.analyse_cards()
-        self.winners = self.players_analysis["winners"]
+        self.data_analysis, self.print_analysis = self.analyse_cards()
+        self.winners = self.data_analysis["winners"]
 
     @staticmethod
     def straight_check(cards):
@@ -723,6 +724,7 @@ class BoardAnalysis(object):
     def analyse_cards(self):
         rankings = {}
         print_rankings = {}
+        data_rankings = {}
 
         for player in self.players:
 
@@ -804,13 +806,14 @@ class BoardAnalysis(object):
             highest_combination = max(player_card_rankings, key=lambda x: x[0])
             rankings[player.name] = highest_combination
 
-            print_rankings[player.name] = (highest_combination[0], highest_combination[2], highest_combination[3])
-            hand_ranking_string = f"{self.rankings[highest_combination[0]]}"
-            print(hand_ranking_string)
+            data_rankings[player.name] = (
+                highest_combination[0], highest_combination[1], highest_combination[2], highest_combination[3])
+            hand_ranking_string = self.ranking_string(highest_combination[0], highest_combination[1])
+            print_rankings[player.name] = hand_ranking_string
 
         # defines the maximum combination
-        max_combination = max(print_rankings.values())
-        max_combination_players = {k: v for k, v in print_rankings.items() if v == max_combination}
+        max_combination = max(data_rankings.values())
+        max_combination_players = {k: v for k, v in data_rankings.items() if v == max_combination}
 
         # defines the maximum ranking of the combination
         max_ranking = max([x[1] for x in max_combination_players.values()])
@@ -821,9 +824,34 @@ class BoardAnalysis(object):
         max_ranking_players_with_kickers = {k: v for k, v in max_ranking_players.items() if v[2] == max_kicker}
 
         winners = max_ranking_players_with_kickers.keys()
+        data_rankings["winners"] = list([x for x in self.players if x.name in winners])
         print_rankings["winners"] = list([x for x in self.players if x.name in winners])
 
-        return print_rankings
+        return data_rankings, print_rankings
+
+    def ranking_string(self, rank, cards):
+        """
+        A function that parses the raw ranking data
+
+
+        Returns:
+
+        """
+        string_cards = "".join([str(x) for x in cards])
+        ranking_strings = {
+            0: f"High Card {string_cards[0]} with kickers {string_cards[1:]}",
+            1: f"A Pair: {string_cards[0:4]} with kickers{string_cards[4:]}",
+            2: f"Two Pair {string_cards[0:8]} with {string_cards[8:]} kicker",
+            3: f"Three of a kind {string_cards[0:6]} with {string_cards[6:]} kickers",
+            4: f"A Straight {string_cards}",
+            5: f"A Flush {string_cards}",
+            6: f"A Full House {string_cards}",
+            7: f"Four of a Kind {string_cards[0:8]}",
+            8: f"A Straight Flush {string_cards}",
+            9: f"A Royal Flush {string_cards}"
+        }
+
+        return ranking_strings[rank]
 
     def __str__(self):
         return str(f"{self.players_analysis}")
