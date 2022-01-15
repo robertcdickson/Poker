@@ -143,7 +143,7 @@ class Poker(object):
 
         self.positions_keys = dict((v, k) for k, v in self.positions.items())
 
-        # pre and post flop betting orders are different due to big blinds
+        # pre- and post-flop betting orders are different due to big blinds
         pre_flop_order = ["UTG", "UTG+1", "UTG+2", "LJ", "HJ", "CO", "BTN", "SB", "BB"]
         post_flop_order = ["SB", "BB", "UTG", "UTG+1", "UTG+2", "LJ", "HJ", "CO", "BTN"]
 
@@ -163,6 +163,9 @@ class Poker(object):
         self.player_positions = dict((player.current_position, player) for player in self.players)
         self.showdown_card_analysis = None
         self.winners = None
+
+        # a side pot = current pot + (1 + N(call/raise)) * all_in_raise_size
+        self.number_of_pots = 1
 
     def deal(self):
         """
@@ -295,12 +298,14 @@ class Poker(object):
                     player.to_act = False
 
                 # if a player calls their balance loses the amount needed to call, and they remain active until all
-                # players are done
+                # players are done. The player.called_for handles if there is a call and reraise
                 if "call" in current_action:
                     if current_raise_size >= player.chips + player.called_for:
                         print(f"{player.name} is all in")
                         player.all_in = True
                         player.active = False
+                        self.number_of_pots += 1
+                        player.side_pot_final_raise_size = player.chips + player.called_for
 
                     if player.called_for:
                         player.chips -= (current_raise_size - player.called_for)
@@ -347,6 +352,10 @@ class Poker(object):
         print(f"Pot size is {self.pot} BB")
         print("=" * 40)
 
+    def call_bet(self):
+
+
+        pass
     def flop(self):
         """
         flop deals 3 table cards if not already defined
