@@ -611,9 +611,11 @@ class BoardAnalysis(object):
         self.in_play_cards = self.all_player_cards + [self.table_cards]
         self.in_play_cards = set([item for sublist in self.in_play_cards for item in sublist])
         self.remaining_deck = [card for card in self.deck if card not in self.in_play_cards]
+        self.test_rankings = {}
         self.data_analysis, self.print_analysis = self.analyse_cards()
         self.winners = self.data_analysis["winners"]
         self.print_winning_combination = self.winners[0].print_ranking
+        self.ranked_players = {}
 
     @staticmethod
     def straight_check(cards):
@@ -759,6 +761,10 @@ class BoardAnalysis(object):
                         final_straight_cards.append(card)
                         straight_values.remove(card.value)
 
+                # for A-low straight
+                if all([x.value in [14, 2, 3, 4, 5] for x in straight_cards]):
+                    final_straight_cards.insert(0, final_straight_cards.pop())
+                final_straight_cards.reverse()
                 player_card_rankings.append((4, final_straight_cards, straight_ranking, []))
 
             # check for flush or straight flush
@@ -799,13 +805,13 @@ class BoardAnalysis(object):
             elif pairs:
                 if len(pairs) > 1:
                     # two pair
-                    highest_pairs = pairs[-2:]
+                    highest_pairs = sorted(pairs, reverse=True)[:2]
                     highest_pair_ranking = max(pairs)
                     kickers = sorted(self.maxN([x for x in all_cards if x.value not in highest_pairs], n=1),
                                      key=lambda x: x.value, reverse=True)
                     kicker_values = [x.value for x in kickers]
                     player_card_rankings.append(
-                        (2, [card for card in all_cards if card.value in highest_pairs] + kickers, highest_pair_ranking,
+                        (2, sorted([card for card in all_cards if card.value in highest_pairs], reverse=True) + kickers, highest_pair_ranking,
                          kicker_values))
                 else:
                     highest_pair = pairs[0]
@@ -823,14 +829,15 @@ class BoardAnalysis(object):
 
             highest_combination = max(player_card_rankings, key=lambda x: x[0])
             rankings[player.name] = highest_combination
-
             data_rankings[player.name] = (
                 highest_combination[0], highest_combination[1], highest_combination[2], highest_combination[3])
+            self.test_rankings[player.name] = HandRanking(highest_combination)
             hand_ranking_string = self.ranking_string(highest_combination[0], highest_combination[1])
             player.print_ranking = hand_ranking_string
             print_rankings[player.name] = hand_ranking_string
 
         # defines the maximum combination
+        self.test_rankings = sorted(self.test_rankings.values(), reverse=True)
         max_combination = max(data_rankings.values())
         max_combination_players = {k: v for k, v in data_rankings.items() if v == max_combination}
 
@@ -888,3 +895,35 @@ class InteractivePoker(Poker):
         self.num_bots = num_bots
 
     pass
+
+
+class HandRanking(object):
+    """
+    A class for a players hand ranking
+    """
+    def __init__(self, hand_data):
+        self.hand_class = hand_data[0]
+        self.cards = hand_data[1]
+        self.hand_ranking = hand_data[2]
+        self.kickers = hand_data[3]
+
+        self.single_parameter = [self.hand_class] + self.cards
+        print(self.single_parameter)
+
+    def __str__(self):
+        return "".join([str(x) for x in self.cards])
+
+    def __repr__(self):
+        return "".join([str(x) for x in self.cards])
+
+    def __lt__(self, other):
+        return self.single_parameter < other.single_parameter
+
+    def __gt__(self, other):
+        return self.single_parameter > other.single_parameter
+
+    def __eq__(self, other):
+        return self.single_parameter == other.single_parameter
+
+    def __hash__(self):
+        return hash(str(self))
