@@ -354,8 +354,8 @@ class Poker(object):
 
     def call_bet(self):
 
-
         pass
+
     def flop(self):
         """
         flop deals 3 table cards if not already defined
@@ -424,7 +424,7 @@ class Poker(object):
         for player in self.players:
             string_cards = "".join([str(x) for x in player.cards])
             print(f"{player.name}({string_cards}): {player.print_ranking}")
-            print("-"*40)
+            print("-" * 40)
 
         for player in self.winners:
             player.chips += self.pot / len(self.showdown_card_analysis.winners)
@@ -435,7 +435,8 @@ class Poker(object):
         else:
             winners_str = " ".join(x.name for x in self.winners[:-1]) + " and " + self.winners[-1].name
 
-            print(f"Winners are {winners_str} and win {self.pot / len(self.winners)} BB each with {self.showdown_card_analysis.print_winning_combination}")
+            print(
+                f"Winners are {winners_str} and win {self.pot / len(self.winners)} BB each with {self.showdown_card_analysis.print_winning_combination}")
 
     def play_game(self):
 
@@ -811,7 +812,8 @@ class BoardAnalysis(object):
                                      key=lambda x: x.value, reverse=True)
                     kicker_values = [x.value for x in kickers]
                     player_card_rankings.append(
-                        (2, sorted([card for card in all_cards if card.value in highest_pairs], reverse=True) + kickers, highest_pair_ranking,
+                        (2, sorted([card for card in all_cards if card.value in highest_pairs], reverse=True) + kickers,
+                         highest_pair_ranking,
                          kicker_values))
                 else:
                     highest_pair = pairs[0]
@@ -901,6 +903,7 @@ class HandRanking(object):
     """
     A class for a players hand ranking
     """
+
     def __init__(self, hand_data):
         self.hand_class = hand_data[0]
         self.cards = hand_data[1]
