@@ -9,10 +9,8 @@ class Card(object):
         """
 
         Args:
-            rank: str
-                Card ranking. options are 'hearts', 'clubs', 'spades', 'diamonds'
-            suit: str
-                Suit options are 'A', 'K', 'Q', 'J', 'T', '9', '8', '7', '6', '5', '4', '3', '2'
+            string: str
+                string of rank (A, K, Q, J, T, 9, 8, 7, 6, 5, 4, 3, 2) + suit (c, d, s, h)
         """
 
         self.ranks_to_values = {"2": 2,
@@ -31,8 +29,9 @@ class Card(object):
         self.values_to_ranks = {value: key for key, value in self.ranks_to_values.items()}
 
         self.rank = string[0]
-        self.value = self.ranks_to_values[self.rank]
         self.suit = string[1]
+
+        self.value = self.ranks_to_values[self.rank]
 
         self.all_suits = {
             "s": "\u2660",
@@ -62,7 +61,7 @@ class Card(object):
 
 class Poker(object):
     """
-    A class that plays a single game of poker
+    A class that plays a single game of no-limit texas hold-em poker
     """
 
     def __init__(self, players: list, table_cards=None):
@@ -81,6 +80,7 @@ class Poker(object):
                             "Q": 12,
                             "K": 13,
                             "A": 14}
+
         self.hand_rankings = {value: key for key, value in self.hand_values.items()}
 
         self.rankings = {9: "royal_flush",
@@ -99,6 +99,7 @@ class Poker(object):
         self.remaining_deck = deepcopy(self.deck)
 
         self.players = players
+        self.ranked_players = None
         self.player_hands = {}
         self.number_of_players = len(self.players)
         self.seat_numbers = list(range(self.number_of_players))
@@ -141,13 +142,14 @@ class Poker(object):
                           7: "CO",
                           8: "BTN"}
 
+        # inverted keys and values in self.positions
         self.positions_keys = dict((v, k) for k, v in self.positions.items())
 
         # pre- and post-flop betting orders are different due to big blinds
         pre_flop_order = ["UTG", "UTG+1", "UTG+2", "LJ", "HJ", "CO", "BTN", "SB", "BB"]
         post_flop_order = ["SB", "BB", "UTG", "UTG+1", "UTG+2", "LJ", "HJ", "CO", "BTN"]
 
-        # order removing players if there are less than 9
+        # order removing players if there are less than 9 players
         removal_order = [4, 3, 2, 5, 6, 7, 8]
 
         # rename positions based on the number of players
@@ -157,10 +159,13 @@ class Poker(object):
             for j in range(0, 9 - self.number_of_players):
                 del self.positions[removal_order[j]]
 
+        # orders of play
         self.pre_flop_order = [x for x in pre_flop_order if x in self.positions.values()]
         self.post_flop_order = [x for x in post_flop_order if x in self.positions.values()]
 
         self.player_positions = dict((player.current_position, player) for player in self.players)
+
+        # showdown parameters
         self.showdown_card_analysis = None
         self.winners = None
 
@@ -170,11 +175,13 @@ class Poker(object):
     def deal(self):
         """
         Deals cards to each player than does not already have a set hand
-        Returns:
 
+        Returns:
+            None
         """
         print("=" * 40)
 
+        # if cards are already specified they are removed from the deck
         if self.table_cards:
             self.remaining_deck = [card for card in self.remaining_deck if card not in self.table_cards]
 
@@ -243,8 +250,9 @@ class Poker(object):
         # players are no longer active after they fold
         while any([player.to_act for player in self.player_positions.values() if player.active]):
             if betting_round == "pre-flop":
-                actions = {p: p.pre_flop_actions for p in self.player_positions.values()}
                 order = self.pre_flop_order
+                actions = {p: p.pre_flop_actions for p in self.player_positions.values()}
+                current_raise_size = 1
             elif betting_round == "post-flop":
                 order = self.post_flop_order
                 actions = {p: p.post_flop_actions for p in self.player_positions.values()}
@@ -255,23 +263,27 @@ class Poker(object):
                 order = self.post_flop_order
                 actions = {p: p.river_actions for p in self.player_positions.values()}
             else:
-                raise ValueError("betting_round value not valid. only "
+                raise ValueError("Value of betting_round not valid. only "
                                  "'pre_flop', 'post_flop', 'turn', 'river' are valid.")
 
+            current_number_of_calls = 0
             for position in order:
-
-                # check if position still active (this could be removed by changing the for loop iterator
-                if position not in self.player_positions:
-                    continue
 
                 # check to see if any player is still active
                 if not any([player.to_act for player in self.players if player.to_act]):
                     break
 
+                # check if position still active (this could be removed by changing the for loop iterator
+                if position not in self.player_positions:
+                    continue
+
                 player = self.player_positions[position]
 
+                if not player.to_act:
+                    continue
+
                 # get current action from player
-                # should this come as just one list or interactively?
+                # TODO: should this come as just one list or interactively?
                 if not actions[player]:
                     player.active = False
                     player.to_act = False
@@ -300,12 +312,17 @@ class Poker(object):
                 # if a player calls their balance loses the amount needed to call, and they remain active until all
                 # players are done. The player.called_for handles if there is a call and reraise
                 if "call" in current_action:
+                    current_number_of_calls += 1
                     if current_raise_size >= player.chips + player.called_for:
                         print(f"{player.name} is all in")
                         player.all_in = True
-                        player.active = False
+                        player.to_act = False
                         self.number_of_pots += 1
-                        player.side_pot_final_raise_size = player.chips + player.called_for
+                        print(f"pot size at time of all in call = {self.pot}")
+                        player.current_pot = self.pot - (
+                                (current_raise_size - player.called_for) * (current_number_of_calls - 1))
+                        player.side_pot_final_raise_size = player.chips
+                        continue
 
                     if player.called_for:
                         player.chips -= (current_raise_size - player.called_for)
@@ -319,6 +336,7 @@ class Poker(object):
 
                 # betting increases pot size and decreases players chip pile
                 if "raise to" in current_action:
+                    current_number_of_calls = 1
                     raise_size = float(current_action.split()[2])
                     if raise_size > player.chips + player.called_for:
                         raise ValueError("Raise size is larger than number of chips player has.")
@@ -340,9 +358,16 @@ class Poker(object):
                     # once a bet is made all other active players in the hand now have to act
                     if not player.all_in:
                         for active_player in self.player_positions.values():
-                            active_player.to_act = True
+                            if not active_player.all_in:
+                                active_player.to_act = True
 
                     player.to_act = False
+
+            all_in_players = [player for player in self.players if player.active and player.all_in]
+            if any(all_in_players):
+                for player in self.players:
+                    player.side_pot = player.current_pot + player.side_pot_final_raise_size * current_number_of_calls
+                    print(f"{player.name} can win a max of {player.side_pot}")
 
             i += 1
 
@@ -418,6 +443,7 @@ class Poker(object):
         """
         self.showdown_card_analysis = BoardAnalysis(self.players, self.table_cards)
         self.winners = self.showdown_card_analysis.winners
+        self.ranked_players = self.showdown_card_analysis.ranked_players
 
     def summary(self):
         print("-" * 40)
@@ -426,17 +452,42 @@ class Poker(object):
             print(f"{player.name}({string_cards}): {player.print_ranking}")
             print("-" * 40)
 
-        for player in self.winners:
-            player.chips += self.pot / len(self.showdown_card_analysis.winners)
-        if len(self.winners) == 1:
-            print(
-                f"Winner is {self.winners[0].name} with {self.showdown_card_analysis.print_analysis[self.winners[0].name]} "
-                f"and collects {self.pot}")
-        else:
-            winners_str = " ".join(x.name for x in self.winners[:-1]) + " and " + self.winners[-1].name
+        i = 0
+        for ranking in self.ranked_players:
+            print(self.pot)
+            if len(ranking) == 1:
+                winner = ranking[0]
+                if winner.side_pot:
+                    winner.chips += winner.side_pot / len(ranking)
+                    print(
+                        f"Winner is {winner.name} with {self.showdown_card_analysis.print_analysis[winner.name]} "
+                        f"and collects {self.winners[0].side_pot}")
+                    self.pot -= winner.side_pot
+                else:
+                    winner.chips += self.pot / len(ranking)
+                    print(
+                        f"Winner is {winner.name} with {self.showdown_card_analysis.print_analysis[winner.name]} "
+                        f"and collects {self.pot}")
+                    self.pot -= self.pot
 
-            print(
-                f"Winners are {winners_str} and win {self.pot / len(self.winners)} BB each with {self.showdown_card_analysis.print_winning_combination}")
+            else:
+                remove_from_pot = 0
+                for player in ranking:
+                    if player.side_pot:
+                        player.chips += player.side_pot / len(ranking)
+                        print(
+                            f"Winner is {player.name} with {player.print_ranking} "
+                            f"and collects {self.winners[0].side_pot}")
+                        remove_from_pot += player.side_pot
+                    else:
+                        player.chips += self.pot / len(ranking)
+                        print(
+                            f"Winner is {player.name} with {player.print_ranking} "
+                            f"and collects {self.pot / len(ranking)}")
+                        remove_from_pot = self.pot / len(ranking)
+
+                self.pot -= remove_from_pot
+                winners_str = " ".join(x.name for x in ranking[:-1]) + " and " + ranking[-1].name
 
     def play_game(self):
 
@@ -492,7 +543,7 @@ class Player(object):
     """
 
     def __init__(self, name: str, chips: float, cards=None, table_cards=None, current_position=None,
-                 pre_flop=None, post_flop=None, turn=None, river=None):
+                 pre_flop=None, post_flop=None, turn=None, river=None, hand_ranking=None):
 
         if pre_flop is None:
             pre_flop = []
@@ -506,6 +557,8 @@ class Player(object):
             table_cards = []
         if cards is None:
             cards = []
+        if hand_ranking is None:
+            hand_ranking = []
 
         self.suits = ["c", "s", "d", "h"]
         self.values = {"2": 2,
@@ -521,7 +574,7 @@ class Player(object):
                        "Q": 12,
                        "K": 13,
                        "A": 14}
-        self.hand_ranking = []
+
         self.rankings = {9: "royal_flush",
                          8: "straight_flush",
                          7: "four_of_a_kind",
@@ -533,6 +586,7 @@ class Player(object):
                          1: "pair",
                          0: "high_card"}
 
+        self.hand_ranking = hand_ranking
         self.chips = chips
         self.name = name
         self.deck = [Card(value + suit) for suit in self.suits for value in self.values]
@@ -558,6 +612,9 @@ class Player(object):
         self.called_for = 0
         self.print_ranking = None
 
+        self.side_pot = 0
+        self.current_pot = 0
+        self.side_pot_final_raise_size = 0
         # self.card_values = [card[0] for card in self.in_play_cards]
         # self.card_values_counter = Counter(self.card_values)
         # self.card_suits = [card[1] for card in self.in_play_cards]
@@ -616,7 +673,26 @@ class BoardAnalysis(object):
         self.data_analysis, self.print_analysis = self.analyse_cards()
         self.winners = self.data_analysis["winners"]
         self.print_winning_combination = self.winners[0].print_ranking
-        self.ranked_players = {}
+
+        self.counter = {}
+        for player in self.players:
+            if player.hand_ranking not in self.counter.values():
+                self.counter[player] = player.hand_ranking
+
+        # players need to be sorted to figure out equal rankings
+        self.players = sorted(self.players, key=lambda x: x.hand_ranking, reverse=True)
+
+        # ordered rankings in player pool
+        self.rankings = []
+        for ranking in [player.hand_ranking for player in self.players]:
+            if ranking not in self.rankings:
+                self.rankings.append(ranking)
+
+        self.ranked_players = [[] for x in range(len(self.rankings))]
+        for i, ranking in enumerate(self.rankings):
+            for player in self.players:
+                if player.hand_ranking == ranking:
+                    self.ranked_players[i].append(player)
 
     @staticmethod
     def straight_check(cards):
@@ -833,7 +909,10 @@ class BoardAnalysis(object):
             rankings[player.name] = highest_combination
             data_rankings[player.name] = (
                 highest_combination[0], highest_combination[1], highest_combination[2], highest_combination[3])
+            player.hand_ranking = HandRanking(highest_combination)
+
             self.test_rankings[player.name] = HandRanking(highest_combination)
+
             hand_ranking_string = self.ranking_string(highest_combination[0], highest_combination[1])
             player.print_ranking = hand_ranking_string
             print_rankings[player.name] = hand_ranking_string
@@ -910,8 +989,7 @@ class HandRanking(object):
         self.hand_ranking = hand_data[2]
         self.kickers = hand_data[3]
 
-        self.single_parameter = [self.hand_class] + self.cards
-        print(self.single_parameter)
+        self.single_parameter = [self.hand_class] + [card.value for card in self.cards]
 
     def __str__(self):
         return "".join([str(x) for x in self.cards])
