@@ -268,6 +268,9 @@ class Poker(object):
 
             current_number_of_calls = 0
             for position in order:
+                print("=" * 40)
+                stack_sizes = sorted([p.chips + p.called_for for p in self.players], reverse=True)
+                # print(f"Stack sizes = {stack_sizes}")
 
                 # check to see if any player is still active
                 if not any([player.to_act for player in self.players if player.to_act]):
@@ -290,7 +293,7 @@ class Poker(object):
                     continue
 
                 current_action = actions[player][i]
-                print(f"{player} {current_action}")
+                print(f"{player}({float(player.chips)} BB) {current_action}")
 
                 round_actions.append(current_action)
 
@@ -314,14 +317,20 @@ class Poker(object):
                 if "call" in current_action:
                     current_number_of_calls += 1
                     if current_raise_size >= player.chips + player.called_for:
+                        all_in_players = [player.all_in for player in self.players if player.all_in]
                         print(f"{player.name} is all in")
+
+                        self.number_of_pots += 1
+
+                        player.current_pot = self.pot - (
+                                (current_raise_size - player.called_for) * (
+                                    current_number_of_calls - 1 + len(all_in_players)))
                         player.all_in = True
                         player.to_act = False
-                        self.number_of_pots += 1
-                        print(f"pot size at time of all in call = {self.pot}")
-                        player.current_pot = self.pot - (
-                                (current_raise_size - player.called_for) * (current_number_of_calls - 1))
                         player.side_pot_final_raise_size = player.chips
+
+                        self.pot += player.chips
+                        player.chips = 0
                         continue
 
                     if player.called_for:
@@ -331,7 +340,7 @@ class Poker(object):
                         player.chips -= current_raise_size
                         self.pot += current_raise_size
 
-                    player.called_for = current_raise_size
+                    player.called_for += current_raise_size + player.called_for
                     player.to_act = False
 
                 # betting increases pot size and decreases players chip pile
@@ -344,6 +353,12 @@ class Poker(object):
                         player.all_in = True
                         print(f"{player.name} is all in!")
                         player.active = False
+                        player.side_pot_final_raise_size = player.chips
+                        current_number_of_calls = 0
+
+                    # this is to ensure a bet is never more than it needs to be
+                    if raise_size > stack_sizes[1]:
+                        raise_size = stack_sizes[1]
 
                     if player.called_for:
                         player.chips -= (raise_size - player.called_for)
@@ -356,25 +371,28 @@ class Poker(object):
                     player.called_for = current_raise_size
 
                     # once a bet is made all other active players in the hand now have to act
-                    if not player.all_in:
-                        for active_player in self.player_positions.values():
-                            if not active_player.all_in:
-                                active_player.to_act = True
+                    for active_player in self.player_positions.values():
+                        if not active_player.all_in:
+                            active_player.to_act = True
 
                     player.to_act = False
 
-            all_in_players = [player for player in self.players if player.active and player.all_in]
-            if any(all_in_players):
-                for player in self.players:
-                    player.side_pot = player.current_pot + player.side_pot_final_raise_size * current_number_of_calls
-                    print(f"{player.name} can win a max of {player.side_pot}")
+
+            all_in_players = [player for player in self.players
+                              if player.active
+                              and player.all_in
+                              and not player.side_pot]
+
+            for player in all_in_players:
+                player.side_pot = player.current_pot + player.side_pot_final_raise_size * \
+                                  (current_number_of_calls + 1)
 
             i += 1
 
         print("-" * 40)
         for player in self.players:
             player.called_for = 0
-        print(f"Pot size is {self.pot} BB")
+        print(f"After {betting_round} betting, pot size is {self.pot} BB")
         print("=" * 40)
 
     def call_bet(self):
@@ -453,8 +471,7 @@ class Poker(object):
             print("-" * 40)
 
         i = 0
-        for ranking in self.ranked_players:
-            print(self.pot)
+        for i, ranking in enumerate(self.ranked_players):
             if len(ranking) == 1:
                 winner = ranking[0]
                 if winner.side_pot:
@@ -473,21 +490,22 @@ class Poker(object):
             else:
                 remove_from_pot = 0
                 for player in ranking:
-                    if player.side_pot:
+                    if player.side_pot and player.side_pot <= self.pot:
                         player.chips += player.side_pot / len(ranking)
                         print(
-                            f"Winner is {player.name} with {player.print_ranking} "
-                            f"and collects {self.winners[0].side_pot}")
+                            f"In Rank {i + 1} {player.name} with {player.print_ranking} "
+                            f"and collects {player.side_pot / len(ranking)}")
                         remove_from_pot += player.side_pot
                     else:
                         player.chips += self.pot / len(ranking)
                         print(
-                            f"Winner is {player.name} with {player.print_ranking} "
+                            f"In Rank {i + 1} is {player.name} with {player.print_ranking} "
                             f"and collects {self.pot / len(ranking)}")
-                        remove_from_pot = self.pot / len(ranking)
+                        remove_from_pot += self.pot / len(ranking)
 
                 self.pot -= remove_from_pot
                 winners_str = " ".join(x.name for x in ranking[:-1]) + " and " + ranking[-1].name
+        print(self.pot)
 
     def play_game(self):
 
