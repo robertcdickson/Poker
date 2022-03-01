@@ -64,3 +64,7 @@ def test_two_pair():
     analysis = BoardAnalysis(players, table_cards)
 
     assert analysis.winners[0] == "c"
+
+
+class MultiWayPots:
+    pass
