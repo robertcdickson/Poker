@@ -1005,6 +1005,9 @@ class BoardAnalysis(object):
                                     card.value == max(three_of_a_kind) or card.value == max(pairs)]
                 ranking = dict(Counter([x.value for x in full_house_cards]))
                 ranking = {v: k for k, v in ranking.items()}
+
+                # sorts by count 3 then by count 2
+                full_house_cards = sorted(full_house_cards, key=lambda x: [a.value for a in full_house_cards].count(x.value), reverse=True)
                 ranking = [ranking[3], ranking[2]]
                 player_card_rankings.append((6, full_house_cards, max(three_of_a_kind), ranking))
 
