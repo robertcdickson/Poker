@@ -851,7 +851,7 @@ class BoardAnalysis(object):
                            max(combo) - min(combo) == 4 and len(set(combo)) == 5]
 
         if straight_values:
-            straight_cards = sorted([x for x in cards if x.value in straight_values[0]],
+            straight_cards = sorted([x for x in cards if x.value in max(straight_values)],
                                     key=lambda x: x.value,
                                     reverse=False)
             if all([x in straight_values[0] for x in [14, 2, 3, 4, 5]]):
@@ -974,7 +974,6 @@ class BoardAnalysis(object):
                     if card.value in straight_values:
                         final_straight_cards.append(card)
                         straight_values.remove(card.value)
-
                 # for A-low straight
                 if all([x.value in [14, 2, 3, 4, 5] for x in straight_cards]):
                     final_straight_cards.insert(0, final_straight_cards.pop())
