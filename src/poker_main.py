@@ -12,7 +12,7 @@ class Card(object):
             string: str
                 string of rank (A, K, Q, J, T, 9, 8, 7, 6, 5, 4, 3, 2) + suit (c, d, s, h)
         """
-
+        self.string = string
         self.ranks_to_values = {"2": 2,
                                 "3": 3,
                                 "4": 4,
