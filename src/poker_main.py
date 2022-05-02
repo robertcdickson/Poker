@@ -59,6 +59,67 @@ class Card(object):
         return hash(str(self))
 
 
+class Hand(object):
+    def __init__(self, cards):
+        """
+
+        Args:
+            cards: (Union[list, str])
+                List of card objects for hand analysis / string of cards
+        """
+        self.cards = cards
+        if type(cards) == str:
+            self.cards = self.cards.replace(" ", "")
+            self.cards = self.get_hand_from_string()
+        elif type(cards) == list and all([isinstance(card, Card) for card in cards]):
+            self.cards = cards
+        else:
+            raise TypeError("Cards must be provided as a string or list of Card Objects")
+
+        self.ranks_to_values = {"2": 2,
+                                "3": 3,
+                                "4": 4,
+                                "5": 5,
+                                "6": 6,
+                                "7": 7,
+                                "8": 8,
+                                "9": 9,
+                                "T": 10,
+                                "J": 11,
+                                "Q": 12,
+                                "K": 13,
+                                "A": 14}
+        self.values_to_ranks = {value: key for key, value in self.ranks_to_values.items()}
+
+        self.all_suits = {
+            "s": "\u2660",
+            "h": "\u2665",
+            "c": "\u2663",
+            "d": "\u2666",
+        }
+
+    def get_hand_from_string(self):
+        cards = []
+        counter = 0
+        rank = None
+        for i, char in enumerate(self.cards):
+            if i % 2 == 0:
+                rank = char
+            else:
+                suit = char
+                cards.append(Card(rank + suit))
+
+        return cards
+
+
+    def __repr__(self):
+        return str(self.cards)
+
+    def __str__(self):
+        return str(self.cards)
+
+
+
 class Poker(object):
     """
     A class that plays a single game of no-limit texas hold-em poker
