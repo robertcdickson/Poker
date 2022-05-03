@@ -27,7 +27,6 @@ class Card(object):
                                 "K": 13,
                                 "A": 14}
         self.values_to_ranks = {value: key for key, value in self.ranks_to_values.items()}
-
         self.rank = string[0]
         self.suit = string[1]
 
@@ -89,6 +88,7 @@ class Hand(object):
                                 "Q": 12,
                                 "K": 13,
                                 "A": 14}
+
         self.values_to_ranks = {value: key for key, value in self.ranks_to_values.items()}
 
         self.all_suits = {
@@ -110,7 +110,6 @@ class Hand(object):
                 cards.append(Card(rank + suit))
 
         return cards
-
 
     def __repr__(self):
         return str(self.cards)
