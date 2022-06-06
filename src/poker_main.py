@@ -960,6 +960,7 @@ class BoardAnalysis(object):
             table_cards = []
         if players is None:
             players = []
+
         self.players = players
         self.table_cards = table_cards
         self.suits = ["c", "s", "d", "h"]
@@ -1186,15 +1187,18 @@ class BoardAnalysis(object):
                 hand_ranking,
                 straight_ranking,
             ) = self.straight_check(all_cards)
+
             if straight_cards:
                 final_straight_cards = []
                 for card in straight_cards:
                     if card.value in straight_values:
                         final_straight_cards.append(card)
                         straight_values.remove(card.value)
+
                 # for A-low straight
                 if all([x.value in [14, 2, 3, 4, 5] for x in straight_cards]):
                     final_straight_cards.insert(0, final_straight_cards.pop())
+
                 final_straight_cards.reverse()
                 player_card_rankings.append(
                     (4, final_straight_cards, straight_ranking, [])
