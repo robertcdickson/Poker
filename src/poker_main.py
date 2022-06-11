@@ -844,7 +844,7 @@ class Player(object):
     def __init__(
         self,
         name: str,
-        chips: float,
+        chips: float = 0.0,
         cards=None,
         table_cards=None,
         current_position=None,
