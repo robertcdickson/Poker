@@ -1,3 +1,6 @@
+import itertools
+from src.poker_main import *
+
 
 class SingleBoardAnalysis(object):
     def __init__(self, player_cards=None, table_cards=None, street=None):
